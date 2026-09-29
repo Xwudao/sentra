@@ -8,12 +8,14 @@ import {
   Chip,
   Field,
   Input,
+  InputNumber,
   PageHeader,
   Select,
   Spinner,
   Tabs,
   Textarea,
   Toggle,
+  cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
 import { api, useApiQuery } from '@/lib/api'
@@ -21,6 +23,12 @@ import type { Action, Operator, Rule, Severity } from '@/lib/types'
 
 const TRANSFORMS = ['lowercase', 'url_decode', 'html_decode', 'remove_nulls', 'compress_whitespace', 'trim']
 const OPERATORS: Operator[] = ['regex', 'contains', 'equals', 'prefix', 'suffix', 'keyword_set']
+const SEVERITIES: Severity[] = ['low', 'medium', 'high', 'critical']
+const ACTION_OPTIONS = [
+  { value: 'block', label: 'block' },
+  { value: 'log', label: 'log' },
+  { value: 'allow', label: 'allow (whitelist)' },
+]
 const TARGET_SUGGESTIONS = [
   'method',
   'host',
@@ -117,7 +125,7 @@ export function RuleEditorPage() {
         }
       />
 
-      {error ? <Card className="mb-4 text-[var(--danger)]">{error}</Card> : null}
+      {error ? <Card className={cx(s.mb4, s.dangerText)}>{error}</Card> : null}
 
       <Tabs
         tabs={[
@@ -129,45 +137,39 @@ export function RuleEditorPage() {
       />
 
       {tab === 'form' ? (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
+        <div className={s.stack}>
           <Card>
             <CardHeader title="Basics" />
             <div className={s.grid2}>
               <Field label="Name">
-                <Input value={rule.name} onChange={(e) => update('name', e.target.value)} placeholder="Basic SQL injection" />
+                <Input value={rule.name} onChange={(e) => update('name', e.target.value)} placeholder="Basic SQL injection" showClear />
               </Field>
               <Field label="Rule ID" hint={isNew ? 'Auto-generated from the name if left blank.' : 'IDs are immutable.'}>
                 <Input value={rule.id} disabled={!isNew} onChange={(e) => update('id', e.target.value)} placeholder="sqli-basic" />
               </Field>
               <Field label="Severity">
-                <Select value={rule.severity} onChange={(e) => update('severity', e.target.value as Severity)}>
-                  {['low', 'medium', 'high', 'critical'].map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </Select>
+                <Select
+                  value={rule.severity}
+                  onChange={(v) => update('severity', v as Severity)}
+                  options={SEVERITIES.map((v) => ({ value: v, label: v }))}
+                />
               </Field>
               <Field label="Action">
-                <Select value={rule.action} onChange={(e) => update('action', e.target.value as Action)}>
-                  <option value="block">block</option>
-                  <option value="log">log</option>
-                  <option value="allow">allow (whitelist)</option>
-                </Select>
+                <Select value={rule.action} onChange={(v) => update('action', v as Action)} options={ACTION_OPTIONS} />
               </Field>
               <Field label="Score">
-                <Input type="number" value={rule.score} onChange={(e) => update('score', Number(e.target.value))} />
+                <InputNumber value={rule.score} onChange={(v) => update('score', v ?? 0)} />
               </Field>
               <Field label="Priority" hint="Higher priority groups are evaluated first.">
-                <Input type="number" value={rule.priority} onChange={(e) => update('priority', Number(e.target.value))} />
+                <InputNumber value={rule.priority} onChange={(v) => update('priority', v ?? 0)} />
               </Field>
             </div>
-            <div className="mt-3">
+            <div className={s.mt3}>
               <Field label="Description">
                 <Input value={rule.description} onChange={(e) => update('description', e.target.value)} />
               </Field>
             </div>
-            <div className="mt-3">
+            <div className={s.mt3}>
               <Field label="Tags (comma separated)">
                 <Input
                   value={rule.tags.join(', ')}
@@ -175,9 +177,9 @@ export function RuleEditorPage() {
                 />
               </Field>
             </div>
-            <div className="flex items-center gap-3 mt-4">
+            <div className={cx(s.row, s.mt4)}>
               <Toggle checked={rule.enabled} onChange={(v) => update('enabled', v)} label="Enabled" />
-              <span className="text-sm">{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+              <span className={s.textSm}>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
             </div>
           </Card>
 
@@ -186,15 +188,13 @@ export function RuleEditorPage() {
             <Field label="Targets">
               <TargetsEditor targets={rule.targets} onChange={(t) => update('targets', t)} />
             </Field>
-            <div className={s.grid2} style={{ marginTop: 'var(--space-4)' }}>
+            <div className={cx(s.grid2, s.mt4)}>
               <Field label="Operator">
-                <Select value={rule.operator} onChange={(e) => update('operator', e.target.value as Operator)}>
-                  {OPERATORS.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </Select>
+                <Select
+                  value={rule.operator}
+                  onChange={(v) => update('operator', v as Operator)}
+                  options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                />
               </Field>
               {rule.operator === 'keyword_set' ? (
                 <Field label="Keywords (one per line)">
@@ -209,24 +209,24 @@ export function RuleEditorPage() {
                 </Field>
               )}
             </div>
-            <div className="mt-4">
+            <div className={s.mt4}>
               <div className={s.label}>Transforms</div>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className={s.transformList}>
                 {TRANSFORMS.map((t) => {
                   const active = rule.transforms.includes(t)
                   return (
                     <button
                       key={t}
                       type="button"
+                      className={s.transformButton}
                       onClick={() =>
                         update(
                           'transforms',
                           active ? rule.transforms.filter((x) => x !== t) : [...rule.transforms, t],
                         )
                       }
-                      style={{ cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}
                     >
-                      <span className={s.badge} style={active ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : undefined}>
+                      <span className={cx(s.badge, active && s.transformActive)}>
                         {active ? <span className="i-lucide-check" /> : null}
                         {t}
                       </span>
@@ -234,7 +234,7 @@ export function RuleEditorPage() {
                   )
                 })}
               </div>
-              <p className={s.hint}>Transforms run in the order listed. {rule.transforms.join(' → ') || 'none'}</p>
+              <p className={cx(s.hint, s.mt2)}>Transforms run in the order listed. {rule.transforms.join(' → ') || 'none'}</p>
             </div>
           </Card>
         </div>
@@ -276,27 +276,24 @@ function TargetsEditor({ targets, onChange }: { targets: string[]; onChange: (t:
     setInput('')
   }
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2 flex-wrap">
+    <div className={s.stackTight}>
+      <div className={s.rowWrap}>
         {targets.map((t) => (
-          <span key={t} className="flex items-center gap-1">
+          <span key={t} className={s.row}>
             <Chip>{t}</Chip>
-            <button
-              type="button"
-              aria-label={`Remove ${t}`}
-              onClick={() => onChange(targets.filter((x) => x !== t))}
-              style={{ cursor: 'pointer', border: 'none', background: 'none', color: 'var(--text-muted)' }}
-            >
+            <button type="button" className={s.iconOnly} aria-label={`Remove ${t}`} onClick={() => onChange(targets.filter((x) => x !== t))}>
               <span className="i-lucide-x" />
             </button>
           </span>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div className={s.row}>
         <Input
+          className={s.grow}
           value={input}
           list="target-suggestions"
           placeholder="add target, e.g. header:user-agent"
+          showClear
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

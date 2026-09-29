@@ -1,19 +1,60 @@
-@mixin focus-ring {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* ============================================================
+   Mixins
+   ============================================================ */
+
+@mixin focus-ring($color: var(--accent-border), $offset: 2px) {
+  outline: 2px solid $color;
+  outline-offset: $offset;
 }
 
-@mixin card {
+@mixin interactive-surface {
+  transition:
+    border-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+@mixin card-surface {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
 }
 
-@mixin truncate {
+/* Backwards-compatible alias used by older modules. */
+@mixin card {
+  @include card-surface;
+}
+
+@mixin elevated-surface {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+@mixin text-truncate {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+@mixin truncate {
+  @include text-truncate;
+}
+
+@mixin text-clamp($lines) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @mixin flex-between {
@@ -27,6 +68,9 @@
   font-size: var(--text-xs);
 }
 
+/* ============================================================
+   Responsive (mobile-first)
+   ============================================================ */
 @mixin sm {
   @media (min-width: 640px) {
     @content;

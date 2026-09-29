@@ -134,6 +134,21 @@ func TestEvents(t *testing.T) {
 	if len(ips) != 2 || len(paths) != 2 || len(rules) != 2 {
 		t.Fatalf("aggregates: ips=%v paths=%v rules=%v", ips, paths, rules)
 	}
+
+	// Prune everything older than 30 minutes: only e2 falls outside.
+	n, err = s.PruneEvents(ctx, now.Add(-30*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("pruned=%d, want 1", n)
+	}
+	if _, err := s.GetEvent(ctx, "e2"); err == nil {
+		t.Fatalf("expected pruned event to be gone")
+	}
+	if _, err := s.GetEvent(ctx, "e1"); err != nil {
+		t.Fatalf("expected recent event to remain: %v", err)
+	}
 }
 
 func TestMigrationIdempotent(t *testing.T) {

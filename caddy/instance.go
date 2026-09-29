@@ -34,7 +34,9 @@ type instance struct {
 	admin  *http.Server
 	logger *slog.Logger
 
-	refs int
+	janitor   chan struct{}
+	closeOnce sync.Once
+	refs      int
 }
 
 var (
@@ -43,15 +45,16 @@ var (
 )
 
 type handlerConfig struct {
-	dbPath             string
-	maxRequestBodySize int64
-	bodyLimitAction    engine.BodyLimitAction
-	anomalyThreshold   int
-	trustedProxies     []netip.Prefix
-	clientIPHeader     string
-	adminListen        string
-	adminToken         string
-	version            string
+	dbPath              string
+	maxRequestBodySize  int64
+	bodyLimitAction     engine.BodyLimitAction
+	anomalyThreshold    int
+	trustedProxies      []netip.Prefix
+	clientIPHeader      string
+	adminListen         string
+	adminToken          string
+	eventsRetentionDays int
+	version             string
 }
 
 func defaultDBPath() string {
@@ -80,6 +83,9 @@ func acquire(cfg handlerConfig) (*instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The first handler owns the initial reference; every subsequent handler
+	// increments it in the branch above.
+	inst.refs = 1
 	reg[key] = inst
 	return inst, nil
 }
@@ -154,6 +160,11 @@ func buildInstance(cfg handlerConfig) (*instance, error) {
 
 	inst := &instance{engine: eng, store: store, writer: writer, logger: logger}
 
+	if cfg.eventsRetentionDays > 0 {
+		inst.janitor = make(chan struct{})
+		go inst.pruneEventsForever(time.Duration(cfg.eventsRetentionDays) * 24 * time.Hour)
+	}
+
 	if cfg.adminListen != "off" {
 		if err := startAdmin(inst, cfg); err != nil {
 			shutdownInstance(inst)
@@ -161,6 +172,34 @@ func buildInstance(cfg handlerConfig) (*instance, error) {
 		}
 	}
 	return inst, nil
+}
+
+// pruneEventsForever deletes security events older than the retention window
+// on a fixed cadence so the SQLite database stays bounded on busy sites.
+func (inst *instance) pruneEventsForever(retention time.Duration) {
+	prune := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		n, err := inst.store.PruneEvents(ctx, time.Now().Add(-retention))
+		if err != nil {
+			inst.logger.Error("prune security events", "error", err)
+			return
+		}
+		if n > 0 {
+			inst.logger.Info("pruned security events", "deleted", n, "retention", retention.String())
+		}
+	}
+	prune()
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-inst.janitor:
+			return
+		case <-ticker.C:
+			prune()
+		}
+	}
 }
 
 func loadIPRules(ctx context.Context, eng *engine.Engine, store storage.Store) error {
@@ -212,6 +251,18 @@ func startAdmin(inst *instance, cfg handlerConfig) error {
 }
 
 func shutdownInstance(inst *instance) {
+	if inst == nil {
+		return
+	}
+	inst.closeOnce.Do(func() {
+		shutdownInstanceOnce(inst)
+	})
+}
+
+func shutdownInstanceOnce(inst *instance) {
+	if inst.janitor != nil {
+		close(inst.janitor)
+	}
 	if inst.admin != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		_ = inst.admin.Shutdown(ctx)

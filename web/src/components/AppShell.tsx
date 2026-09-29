@@ -44,46 +44,60 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   return (
     <div className={s.shell}>
+      {open ? <div className={s.backdrop} onClick={() => setOpen(false)} aria-hidden="true" /> : null}
       <aside className={cx(s.sidebar, open && s.sidebarOpen)}>
         <div className={s.brand}>
           <span className={s.brandMark}>
             <span className="i-lucide-shield-half" />
           </span>
-          Sentra
+          <span className={s.brandText}>
+            <span className={s.brandName}>Sentra</span>
+            <span className={s.brandSub}>WAF Console</span>
+          </span>
         </div>
-        {groups.map((group) => (
-          <div key={group.label} className={s.navGroup}>
-            <div className={s.navLabel}>{group.label}</div>
-            {group.items.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={s.navItem}
-                activeProps={{ className: cx(s.navItem, s.navActive) }}
-                activeOptions={{ exact: item.to === '/' }}
-                onClick={() => setOpen(false)}
-              >
-                <span className={cx(s.navIcon, item.icon)} />
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        ))}
+        <nav className={s.nav}>
+          {groups.map((group) => (
+            <div key={group.label} className={s.navGroup}>
+              <div className={s.navLabel}>{group.label}</div>
+              {group.items.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={s.navItem}
+                  activeProps={{ className: cx(s.navItem, s.navActive) }}
+                  activeOptions={{ exact: item.to === '/' }}
+                  onClick={() => setOpen(false)}
+                >
+                  <span className={cx(s.navIcon, item.icon)} aria-hidden="true" />
+                  <span className={s.navText}>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className={s.sidebarFoot}>
+          <span className={s.status}>
+            <span className={s.pulse} />
+            Engine online
+          </span>
+        </div>
       </aside>
       <div className={s.main}>
         <header className={s.topbar}>
-          <Button variant="ghost" className={s.mobileToggle} onClick={() => setOpen((o) => !o)} aria-label="Menu">
+          <Button variant="ghost" className={s.mobileToggle} onClick={() => setOpen((o) => !o)} aria-label="Toggle navigation">
             <span className="i-lucide-menu" />
           </Button>
-          <span className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span className={s.dot} /> WAF active
+          <span className={s.topbarStatus}>
+            <span className={s.pulse} /> WAF active
           </span>
-          <IconButton onClick={toggleTheme} aria-label="Toggle theme">
-            <span className={theme === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'} />
-          </IconButton>
-          <IconButton onClick={clear} aria-label="Sign out" title="Sign out">
-            <span className="i-lucide-log-out" />
-          </IconButton>
+          <div className={s.topbarActions}>
+            <IconButton onClick={toggleTheme} aria-label="Toggle theme" title="Toggle theme">
+              <span className={theme === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'} />
+            </IconButton>
+            <IconButton onClick={clear} aria-label="Sign out" title="Sign out">
+              <span className="i-lucide-log-out" />
+            </IconButton>
+          </div>
         </header>
         <main className={s.content}>{children ?? <Outlet />}</main>
       </div>

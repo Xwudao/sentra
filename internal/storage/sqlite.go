@@ -276,6 +276,17 @@ func (s *SQLite) InsertEvents(ctx context.Context, events []event.SecurityEvent)
 	return tx.Commit()
 }
 
+// PruneEvents deletes security events older than the cutoff and returns the
+// number of rows removed. Old events are re-inserted by nothing, so this is
+// only ever called by the background janitor.
+func (s *SQLite) PruneEvents(ctx context.Context, before time.Time) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM security_events WHERE ts < ?`, before.UnixMilli())
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func eventWhere(f EventFilter) (string, []any) {
 	var clauses []string
 	var args []any

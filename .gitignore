@@ -31,6 +31,7 @@ node_modules/
 /tmp/
 *.log
 logs/
+.dev/
 
 # ---- Secrets / local config ----
 .env

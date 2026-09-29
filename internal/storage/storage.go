@@ -74,6 +74,7 @@ type Store interface {
 	ListEvents(ctx context.Context, f EventFilter) ([]event.SecurityEvent, error)
 	GetEvent(ctx context.Context, id string) (event.SecurityEvent, error)
 	CountEvents(ctx context.Context, f EventFilter) (int64, error)
+	PruneEvents(ctx context.Context, before time.Time) (int64, error)
 	AggregateEvents(ctx context.Context, since time.Time) (ips, paths, rules []StatCount, err error)
 
 	Close() error

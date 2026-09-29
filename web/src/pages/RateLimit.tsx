@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Button, Card, CardHeader, EmptyState, Field, IconButton, Input, PageHeader, Spinner } from '@/components/ui'
+import { Button, Card, CardHeader, EmptyState, Field, IconButton, Input, InputNumber, PageHeader, Spinner, cx } from '@/components/ui'
 import s from '@/components/ui.module.scss'
 import { api, useApiQuery } from '@/lib/api'
 import type { RateLimitRule, Settings } from '@/lib/types'
@@ -55,7 +55,7 @@ export function RateLimitPage() {
         description="Fixed-window limits keyed by client IP and path. The limiter is bounded and fails open when saturated."
         actions={
           <>
-            {saved ? <span className="text-sm text-[var(--success)]">Saved</span> : null}
+            {saved ? <span className={cx(s.textSm, s.successText)}>Saved</span> : null}
             <Button variant="primary" onClick={() => void save()}>
               <span className="i-lucide-save" /> Save
             </Button>
@@ -63,7 +63,7 @@ export function RateLimitPage() {
         }
       />
 
-      {error ? <Card className="mb-4 text-[var(--danger)]">{error}</Card> : null}
+      {error ? <Card className={cx(s.mb4, s.dangerText)}>{error}</Card> : null}
 
       <Card>
         <CardHeader
@@ -76,29 +76,39 @@ export function RateLimitPage() {
           }
         />
         {settings.rate_limit.length === 0 ? (
-          <EmptyState>No rate limit policies. Requests are not rate limited.</EmptyState>
+          <EmptyState
+            icon="i-lucide-gauge"
+            title="No rate limit policies"
+            description="Requests are currently not rate limited."
+            action={
+              <Button variant="primary" size="sm" onClick={addRule}>
+                <span className="i-lucide-plus" /> Add policy
+              </Button>
+            }
+          />
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className={s.stackTight}>
             {settings.rate_limit.map((rule, index) => (
               <div
                 key={rule.id}
-                className="grid gap-3 items-end p-3 rounded-lg"
-                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', background: 'var(--surface-muted)' }}
+                className={s.policyRow}
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))' }}
               >
                 <Field label="Paths (comma separated)">
                   <Input
                     value={rule.paths.join(', ')}
                     onChange={(e) => updateRule(index, { paths: e.target.value.split(',').map((p) => p.trim()).filter(Boolean) })}
                     placeholder="/api/*, /login"
+                    showClear
                   />
                 </Field>
                 <Field label="Requests">
-                  <Input type="number" value={rule.requests} onChange={(e) => updateRule(index, { requests: Number(e.target.value) })} />
+                  <InputNumber value={rule.requests} onChange={(v) => updateRule(index, { requests: v ?? 0 })} />
                 </Field>
                 <Field label="Window (seconds)">
-                  <Input type="number" value={rule.window} onChange={(e) => updateRule(index, { window: Number(e.target.value) })} />
+                  <InputNumber value={rule.window} onChange={(v) => updateRule(index, { window: v ?? 0 })} />
                 </Field>
-                <div className="flex items-center gap-2 justify-end">
+                <div className={s.rowEnd}>
                   <span className={s.mono}>id: {rule.id}</span>
                   <IconButton aria-label="Delete policy" title="Delete" onClick={() => removeRule(index)}>
                     <span className="i-lucide-trash-2" />

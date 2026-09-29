@@ -13,6 +13,7 @@ import {
   Select,
   Spinner,
   TableShell,
+  cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
 import { api, useApiQuery } from '@/lib/api'
@@ -21,6 +22,11 @@ import type { IPRule } from '@/lib/types'
 interface IPRulesResponse {
   ip_rules: IPRule[]
 }
+
+const ACTION_OPTIONS = [
+  { value: 'block', label: 'block' },
+  { value: 'allow', label: 'allow' },
+]
 
 export function IPRulesPage() {
   const { data, loading, reload } = useApiQuery<IPRulesResponse>('/api/ip-rules')
@@ -53,40 +59,40 @@ export function IPRulesPage() {
         description="Allow/block lists evaluated before WAF rules. Allow entries always win; forwarding headers are only trusted from configured proxies."
       />
 
-      <Card className="mb-4">
+      <Card className={s.mb4}>
         <CardHeader title="Add rule" subtitle="Accepts a CIDR range or a single IP address" />
         <form
-          className="grid gap-3 items-end"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))' }}
+          className={s.formGrid}
           onSubmit={(e) => {
             e.preventDefault()
             void add()
           }}
         >
           <Field label="CIDR / IP">
-            <Input required value={form.cidr} onChange={(e) => setForm({ ...form, cidr: e.target.value })} placeholder="203.0.113.0/24" />
+            <Input required value={form.cidr} onChange={(e) => setForm({ ...form, cidr: e.target.value })} placeholder="203.0.113.0/24" showClear />
           </Field>
           <Field label="Action">
-            <Select value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })}>
-              <option value="block">block</option>
-              <option value="allow">allow</option>
-            </Select>
+            <Select value={form.action} onChange={(v) => setForm({ ...form, action: v })} options={ACTION_OPTIONS} />
           </Field>
           <Field label="Note">
-            <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="optional" />
+            <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="optional" showClear />
           </Field>
           <Button variant="primary" type="submit">
             <span className="i-lucide-plus" /> Add
           </Button>
         </form>
-        {error ? <p className="text-sm text-[var(--danger)] mt-3">{error}</p> : null}
+        {error ? <p className={cx(s.textSm, s.dangerText, s.mt3)}>{error}</p> : null}
       </Card>
 
-      <Card>
+      <Card flush>
         {loading && rules.length === 0 ? (
-          <Spinner label="Loading IP rules" />
+          <div className={s.cardSection}>
+            <Spinner label="Loading IP rules" />
+          </div>
         ) : rules.length === 0 ? (
-          <EmptyState>No IP rules configured.</EmptyState>
+          <div className={s.cardSection}>
+            <EmptyState icon="i-lucide-network" title="No IP rules" description="Add an allow or block entry to filter traffic before WAF rules run." />
+          </div>
         ) : (
           <TableShell>
             <thead>
@@ -106,8 +112,8 @@ export function IPRulesPage() {
                     <Badge tone={rule.action === 'allow' ? 'allow' : 'block'}>{rule.action}</Badge>
                   </td>
                   <td>{rule.note || '—'}</td>
-                  <td className="text-xs text-[var(--text-muted)]">{new Date(rule.created_at).toLocaleString()}</td>
-                  <td className="text-right">
+                  <td className={cx(s.textXs, s.textMuted)}>{new Date(rule.created_at).toLocaleString()}</td>
+                  <td className={s.textRight}>
                     <IconButton aria-label="Delete" title="Delete" onClick={() => void remove(rule)}>
                       <span className="i-lucide-trash-2" />
                     </IconButton>

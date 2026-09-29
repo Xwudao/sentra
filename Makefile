@@ -1,4 +1,9 @@
-.PHONY: all web go-build test race bench tidy clean run
+.PHONY: all web go-build test race bench tidy clean run web-dev
+
+# Local development defaults for `make run`.
+DEV_DB ?= .dev/sentra.db
+DEV_WAF_ADDR ?= 127.0.0.1:8080
+DEV_ADMIN_ADDR ?= 127.0.0.1:2020
 
 # Build the SPA and embed it, then build all Go packages.
 all: web go-build
@@ -21,6 +26,20 @@ race:
 
 bench:
 	go test -run '^$$' -bench . -benchmem ./internal/engine/
+
+# Run the standalone Go backend for local development. Pair it with
+# `make web-dev`: the Vite dev server proxies /api and /metrics to it
+# (see web/vite.config.ts) so the SPA hot-reloads against the live API.
+run:
+	mkdir -p $(dir $(DEV_DB))
+	go run ./cmd/sentra \
+		-db $(DEV_DB) \
+		-listen $(DEV_WAF_ADDR) \
+		-admin $(DEV_ADMIN_ADDR)
+
+# Start the Vite dev server for the web UI (proxies to `make run`).
+web-dev:
+	cd web && pnpm dev
 
 tidy:
 	go mod tidy

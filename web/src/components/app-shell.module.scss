@@ -3,123 +3,244 @@
   min-height: 100dvh;
 }
 
+/* ── Sidebar ────────────────────────────────── */
 .sidebar {
-  width: var(--sidebar-w);
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
   position: sticky;
   top: 0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--sidebar-w);
   height: 100dvh;
-  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-5) var(--space-5) var(--space-4);
-  font-weight: 700;
-  color: var(--text-strong);
-  font-size: var(--text-md);
+  gap: var(--space-2-5);
+  padding: var(--space-5) var(--space-4) var(--space-4);
 }
 
 .brandMark {
   display: grid;
   place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
   border-radius: var(--radius-md);
-  background: var(--accent);
+  background: linear-gradient(140deg, var(--accent-hover), var(--accent-active));
   color: #fff;
-  font-size: 1rem;
+  font-size: 1.15rem;
+  box-shadow: var(--glow-accent);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brandName {
+  color: var(--text-strong);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.2;
+}
+
+.brandSub {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3) var(--space-4);
 }
 
 .navGroup {
-  padding: var(--space-3) var(--space-3) 0;
+  padding-top: var(--space-4);
+}
+
+.navGroup:first-child {
+  padding-top: 0;
 }
 
 .navLabel {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  padding: 0 var(--space-2) var(--space-2);
   color: var(--text-muted);
-  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  opacity: 0.85;
 }
 
 .navItem {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 0.5rem var(--space-3);
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-2-5);
+  margin-bottom: 2px;
   border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: var(--text-sm);
-  font-weight: 500;
-  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
-}
+  font-weight: var(--weight-medium);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 
-.navItem:hover {
-  background: var(--surface-muted);
-  color: var(--text-strong);
+  &::before {
+    content: '';
+    position: absolute;
+    left: -0.35rem;
+    top: 50%;
+    width: 3px;
+    height: 0;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    transform: translateY(-50%);
+    transition: height var(--duration) var(--ease-standard);
+  }
+
+  &:hover {
+    background: var(--hover-overlay);
+    color: var(--text-strong);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
 }
 
 .navActive {
   background: var(--accent-soft);
   color: var(--accent);
+
+  &::before {
+    height: 1.1rem;
+  }
+
+  &:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
 }
 
 .navIcon {
+  flex-shrink: 0;
   font-size: 1.05rem;
   line-height: 0;
 }
 
+.navText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebarFoot {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.pulse {
+  position: relative;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+
+/* ── Main ───────────────────────────────────── */
 .main {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .topbar {
-  height: var(--header-h);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: 0 var(--space-6);
-  background: var(--surface);
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--header-h);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
 }
 
-.dot {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: var(--success);
+.topbarStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
 }
 
 .content {
-  padding: var(--space-6);
-  max-width: 78rem;
   width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-6);
 }
 
 .mobileToggle {
   display: none;
+  margin-right: var(--space-1);
 }
 
-@media (max-width: 860px) {
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-header) + 5);
+  background: rgba(4, 5, 8, 0.5);
+  backdrop-filter: blur(2px);
+  animation: backdropIn var(--duration) var(--ease-standard);
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 900px) {
   .sidebar {
     position: fixed;
-    z-index: 60;
+    top: 0;
+    left: 0;
+    z-index: calc(var(--z-header) + 6);
     transform: translateX(-100%);
-    transition: transform var(--duration) var(--ease);
+    transition: transform var(--duration-normal) var(--ease-standard);
+    box-shadow: var(--shadow-lg);
   }
 
   .sidebarOpen {
@@ -128,10 +249,13 @@
 
   .mobileToggle {
     display: inline-flex;
-    margin-right: auto;
   }
 
-  .topbar {
-    justify-content: flex-start;
+  .topbarStatus {
+    display: none;
+  }
+
+  .content {
+    padding: var(--space-4);
   }
 }

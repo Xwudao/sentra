@@ -9,10 +9,12 @@ import {
   Input,
   Modal,
   PageHeader,
+  Pagination,
   Select,
   SeverityBadge,
   Spinner,
   TableShell,
+  cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
 import { useApiQuery } from '@/lib/api'
@@ -25,6 +27,12 @@ interface EventsResponse {
 }
 
 const PAGE_SIZE = 50
+
+const ACTION_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'block', label: 'Blocked' },
+  { value: 'log', label: 'Logged' },
+]
 
 export function EventsPage() {
   const [filters, setFilters] = useState({ action: '', ip: '', rule: '', path: '' })
@@ -47,14 +55,20 @@ export function EventsPage() {
   const events = data?.events ?? []
   const total = data?.total ?? 0
 
+  function resetFilters() {
+    const cleared = { action: '', ip: '', rule: '', path: '' }
+    setFilters(cleared)
+    setApplied(cleared)
+    setOffset(0)
+  }
+
   return (
     <>
       <PageHeader title="Events" description="Blocked and logged requests with their rule matches." />
 
-      <Card className="mb-4">
+      <Card className={s.mb4}>
         <form
-          className="grid gap-3 items-end"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))' }}
+          className={s.formGrid}
           onSubmit={(e) => {
             e.preventDefault()
             setOffset(0)
@@ -62,33 +76,24 @@ export function EventsPage() {
           }}
         >
           <Field label="Action">
-            <Select value={filters.action} onChange={(e) => setFilters({ ...filters, action: e.target.value })}>
-              <option value="">All</option>
-              <option value="block">Blocked</option>
-              <option value="log">Logged</option>
-            </Select>
+            <Select value={filters.action} onChange={(v) => setFilters({ ...filters, action: v })} options={ACTION_FILTERS} />
           </Field>
           <Field label="Client IP">
-            <Input placeholder="1.2.3.4" value={filters.ip} onChange={(e) => setFilters({ ...filters, ip: e.target.value })} />
+            <Input placeholder="1.2.3.4" value={filters.ip} onChange={(e) => setFilters({ ...filters, ip: e.target.value })} showClear />
           </Field>
           <Field label="Rule">
-            <Input placeholder="rule id" value={filters.rule} onChange={(e) => setFilters({ ...filters, rule: e.target.value })} />
+            <Input placeholder="rule id" value={filters.rule} onChange={(e) => setFilters({ ...filters, rule: e.target.value })} showClear />
           </Field>
           <Field label="Path contains">
-            <Input placeholder="/admin" value={filters.path} onChange={(e) => setFilters({ ...filters, path: e.target.value })} />
+            <Input placeholder="/admin" value={filters.path} onChange={(e) => setFilters({ ...filters, path: e.target.value })} showClear />
           </Field>
-          <div className="flex gap-2">
+          <div className={s.row}>
             <Button variant="primary" type="submit">
               <span className="i-lucide-search" /> Filter
             </Button>
             <Button
               type="button"
-              onClick={() => {
-                const cleared = { action: '', ip: '', rule: '', path: '' }
-                setFilters(cleared)
-                setApplied(cleared)
-                setOffset(0)
-              }}
+              onClick={resetFilters}
             >
               Reset
             </Button>
@@ -96,11 +101,24 @@ export function EventsPage() {
         </form>
       </Card>
 
-      <Card>
+      <Card flush>
         {loading && events.length === 0 ? (
-          <Spinner label="Loading events" />
+          <div className={s.cardSection}>
+            <Spinner label="Loading events" />
+          </div>
         ) : events.length === 0 ? (
-          <EmptyState>No events match the current filters.</EmptyState>
+          <div className={s.cardSection}>
+            <EmptyState
+              icon="i-lucide-search-x"
+              title="No events found"
+              description="Try adjusting or clearing the filters above."
+              action={
+                <Button size="sm" onClick={resetFilters}>
+                  Reset filters
+                </Button>
+              }
+            />
+          </div>
         ) : (
           <TableShell>
             <thead>
@@ -120,7 +138,7 @@ export function EventsPage() {
                   <td title={formatTime(ev.timestamp)}>{formatRelative(ev.timestamp)}</td>
                   <td className={s.mono}>{ev.client_ip}</td>
                   <td className={s.mono}>{ev.method}</td>
-                  <td className="max-w-[22rem] truncate" title={ev.path + (ev.query ? `?${ev.query}` : '')}>
+                  <td className={s.pathCell} title={ev.path + (ev.query ? `?${ev.query}` : '')}>
                     {ev.path}
                   </td>
                   <td>
@@ -134,18 +152,8 @@ export function EventsPage() {
           </TableShell>
         )}
 
-        <div className="flex items-center justify-between gap-2 mt-4">
-          <span className="text-xs text-[var(--text-muted)]">
-            {total} event{total === 1 ? '' : 's'}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button size="sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
-              <span className="i-lucide-chevron-left" /> Prev
-            </Button>
-            <Button size="sm" disabled={offset + PAGE_SIZE >= total} onClick={() => setOffset(offset + PAGE_SIZE)}>
-              Next <span className="i-lucide-chevron-right" />
-            </Button>
-          </div>
+        <div className={s.cardSection}>
+          <Pagination offset={offset} pageSize={PAGE_SIZE} total={total} onChange={setOffset} />
         </div>
       </Card>
 
@@ -158,8 +166,8 @@ export function EventsPage() {
 
 function EventDetail({ event }: { event: SecurityEvent }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(9rem, 1fr))' }}>
+    <div className={s.stack}>
+      <div className={s.gridAutoSm}>
         <Detail label="Time" value={formatTime(event.timestamp)} />
         <Detail label="Client IP" value={event.client_ip} />
         <Detail label="Method" value={event.method} />
@@ -170,29 +178,31 @@ function EventDetail({ event }: { event: SecurityEvent }) {
         <Detail label="Duration" value={`${event.duration_us}µs`} />
       </div>
       <div>
-        <div className={s.label}>Path</div>
-        <div className={s.mono}>{event.path + (event.query ? `?${event.query}` : '')}</div>
+        <div className={cx(s.label, s.mb2)}>Path</div>
+        <div className={s.pre}>{event.path + (event.query ? `?${event.query}` : '')}</div>
       </div>
       {event.user_agent ? (
         <div>
-          <div className={s.label}>User agent</div>
-          <div className={s.mono}>{event.user_agent}</div>
+          <div className={cx(s.label, s.mb2)}>User agent</div>
+          <div className={s.pre}>{event.user_agent}</div>
         </div>
       ) : null}
-      {event.body_truncated ? <p className="text-xs text-[var(--warning)]">Request body was truncated during inspection.</p> : null}
+      {event.body_truncated ? (
+        <p className={cx(s.textXs, s.warningText)}>Request body was truncated during inspection.</p>
+      ) : null}
       <div>
-        <div className={s.label}>Matched rules</div>
+        <div className={cx(s.label, s.mb2)}>Matched rules</div>
         {event.matches.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)]">No rule metadata.</p>
+          <p className={cx(s.textSm, s.textMuted)}>No rule metadata.</p>
         ) : (
-          <div className="flex flex-col gap-2 mt-1">
+          <div className={s.stackTight}>
             {event.matches.map((m, i) => (
-              <div key={`${m.rule_id}-${i}`} className="flex items-center gap-3 flex-wrap">
+              <div key={`${m.rule_id}-${i}`} className={s.matchRow}>
                 <span className={s.mono}>{m.rule_id}</span>
-                <span className="text-xs text-[var(--text-muted)]">target: {m.target}</span>
+                <span className={cx(s.textXs, s.textMuted)}>target: {m.target}</span>
                 <SeverityBadge severity={m.severity ?? 'low'} />
                 <ActionBadge action={m.action} />
-                <span className="text-xs text-[var(--text-muted)]">score {m.score}</span>
+                <span className={cx(s.textXs, s.textMuted)}>score {m.score}</span>
               </div>
             ))}
           </div>
@@ -205,8 +215,8 @@ function EventDetail({ event }: { event: SecurityEvent }) {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className={s.label}>{label}</div>
-      <div className="text-sm">{value}</div>
+      <div className={cx(s.label, s.mb2)}>{label}</div>
+      <div className={s.textSm}>{value}</div>
     </div>
   )
 }

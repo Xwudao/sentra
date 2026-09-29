@@ -56,13 +56,28 @@ export function RulesPage() {
         }
       />
 
-      {error ? <Card className="mb-4">Failed to load rules: {error.message}</Card> : null}
+      {error ? <Card className={s.mb4}>Failed to load rules: {error.message}</Card> : null}
 
-      <Card>
+      <Card flush>
         {loading && rules.length === 0 ? (
-          <Spinner label="Loading rules" />
+          <div className={s.cardSection}>
+            <Spinner label="Loading rules" />
+          </div>
         ) : rules.length === 0 ? (
-          <EmptyState>No rules yet. Create one to start protecting traffic.</EmptyState>
+          <div className={s.cardSection}>
+            <EmptyState
+              icon="i-lucide-shield-plus"
+              title="No rules yet"
+              description="Create your first detection rule to start protecting traffic."
+              action={
+                <Link to="/security/rules/new">
+                  <Button variant="primary">
+                    <span className="i-lucide-plus" /> New rule
+                  </Button>
+                </Link>
+              }
+            />
+          </div>
         ) : (
           <TableShell>
             <thead>
@@ -85,11 +100,11 @@ export function RulesPage() {
                     <Toggle checked={rule.enabled} onChange={(v) => void toggle(rule, v)} label={`Enable ${rule.name}`} />
                   </td>
                   <td>
-                    <Link to="/security/rules/$ruleId" params={{ ruleId: rule.id }} className="font-medium hover:text-[var(--accent)]">
+                    <Link to="/security/rules/$ruleId" params={{ ruleId: rule.id }} className={s.link}>
                       {rule.name}
                     </Link>
                     {rule.tags?.length ? (
-                      <div className="flex gap-1 mt-1 flex-wrap">
+                      <div className={s.tagRow}>
                         {rule.tags.map((tag) => (
                           <Chip key={tag}>{tag}</Chip>
                         ))}
@@ -98,8 +113,8 @@ export function RulesPage() {
                   </td>
                   <td className={s.mono}>{rule.id}</td>
                   <td className={s.mono}>{rule.operator}</td>
-                  <td className="max-w-[16rem]">
-                    <div className="flex gap-1 flex-wrap">
+                  <td className={s.targetCell}>
+                    <div className={s.chipTight}>
                       {rule.targets.map((t) => (
                         <Chip key={t}>{t}</Chip>
                       ))}
@@ -113,7 +128,7 @@ export function RulesPage() {
                     <ActionBadge action={rule.action} />
                   </td>
                   <td>
-                    <div className="flex items-center gap-1 justify-end">
+                    <div className={s.rowEndTight}>
                       <Link to="/security/rules/$ruleId" params={{ ruleId: rule.id }}>
                         <IconButton aria-label="Edit" title="Edit">
                           <span className="i-lucide-pencil" />

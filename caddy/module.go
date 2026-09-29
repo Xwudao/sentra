@@ -43,6 +43,9 @@ type Handler struct {
 	AdminListen string `json:"admin_listen,omitempty"`
 	// AdminToken protects the management API with bearer auth.
 	AdminToken string `json:"admin_token,omitempty"`
+	// EventsRetentionDays deletes security events older than this many days.
+	// Zero (the default) keeps events forever.
+	EventsRetentionDays int `json:"events_retention_days,omitempty"`
 
 	inst *instance
 }
@@ -112,15 +115,16 @@ func (h *Handler) config() (handlerConfig, error) {
 		return handlerConfig{}, err
 	}
 	cfg := handlerConfig{
-		dbPath:             h.DB,
-		maxRequestBodySize: h.MaxRequestBodySize,
-		bodyLimitAction:    engine.BodyLimitAction(h.BodyLimitAction),
-		anomalyThreshold:   h.AnomalyThreshold,
-		trustedProxies:     proxies,
-		clientIPHeader:     h.ClientIPHeader,
-		adminListen:        h.AdminListen,
-		adminToken:         h.AdminToken,
-		version:            Version,
+		dbPath:              h.DB,
+		maxRequestBodySize:  h.MaxRequestBodySize,
+		bodyLimitAction:     engine.BodyLimitAction(h.BodyLimitAction),
+		anomalyThreshold:    h.AnomalyThreshold,
+		trustedProxies:      proxies,
+		clientIPHeader:      h.ClientIPHeader,
+		adminListen:         h.AdminListen,
+		adminToken:          h.AdminToken,
+		eventsRetentionDays: h.EventsRetentionDays,
+		version:             Version,
 	}
 	return cfg, nil
 }
@@ -194,6 +198,15 @@ func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 				return d.ArgErr()
 			}
 			h.AdminToken = d.Val()
+		case "events_retention_days":
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			n, err := strconv.Atoi(d.Val())
+			if err != nil {
+				return d.Errf("invalid events_retention_days: %v", err)
+			}
+			h.EventsRetentionDays = n
 		default:
 			return d.Errf("unrecognized sentra option %q", d.Val())
 		}

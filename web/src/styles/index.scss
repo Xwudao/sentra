@@ -9,29 +9,39 @@
 :root {
   font-family: var(--font-sans);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-normal);
   color: var(--text);
   background: var(--canvas);
   color-scheme: dark light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--canvas);
+  background:
+    radial-gradient(60rem 40rem at 100% -10%, var(--canvas-glow), transparent 60%),
+    var(--canvas);
+  background-attachment: fixed;
   color: var(--text);
+}
+
+#root {
+  min-height: 100dvh;
 }
 
 h1,
 h2,
 h3,
 h4 {
-  color: var(--text-strong);
-  font-weight: 600;
-  line-height: 1.25;
   margin: 0;
+  color: var(--text-strong);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
 p {
@@ -50,6 +60,10 @@ textarea {
   font: inherit;
 }
 
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 code,
 pre {
   font-family: var(--font-mono);
@@ -57,11 +71,18 @@ pre {
 
 ::selection {
   background: var(--accent-soft);
+  color: var(--text-strong);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-border);
   outline-offset: 2px;
+}
+
+/* Custom navigation and action surfaces manage their own focus ring. */
+button:focus-visible,
+a:focus-visible {
+  outline: none;
 }
 
 ::-webkit-scrollbar {
@@ -69,9 +90,29 @@ pre {
   height: 10px;
 }
 
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: var(--radius-pill);
   border: 3px solid transparent;
+  border-radius: var(--radius-pill);
   background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: content-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 
 import { api } from '@/lib/api'
 import { useAuth } from '@/store/auth'
-import { Button, Card, Field, Input } from './ui'
+import { Button, Field, Input } from './ui'
+import s from './auth-gate.module.scss'
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const token = useAuth((s) => s.token)
@@ -25,8 +26,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (state === 'checking') {
     return (
-      <div className="min-h-100dvh grid place-items-center">
-        <span className="w-8 h-8 rounded-full border-2 border-[var(--border-strong)] border-t-[var(--accent)] animate-spin" />
+      <div className={s.center}>
+        <span className={s.spinner} />
       </div>
     )
   }
@@ -43,19 +44,17 @@ function LoginScreen() {
   const [value, setValue] = useState('')
 
   return (
-    <div className="min-h-100dvh grid place-items-center p-6">
-      <Card className="w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="grid place-items-center w-8 h-8 rounded-md bg-[var(--accent)] text-white">
+    <div className={s.center}>
+      <div className={s.loginCard}>
+        <div className={s.brandRow}>
+          <span className={s.brandMark}>
             <span className="i-lucide-shield-half" />
           </span>
-          <h1 className="text-lg font-semibold">Sentra WAF</h1>
+          <h1 className={s.brandName}>Sentra WAF</h1>
         </div>
-        <p className="text-sm text-[var(--text-muted)] mb-4">
-          Enter the admin token configured for this instance to access the management API.
-        </p>
+        <p className={s.lead}>Enter the admin token configured for this instance to access the management API.</p>
         <form
-          className="flex flex-col gap-4"
+          className={s.form}
           onSubmit={(e) => {
             e.preventDefault()
             setToken(value.trim())
@@ -74,7 +73,7 @@ function LoginScreen() {
             <span className="i-lucide-log-in" /> Sign in
           </Button>
         </form>
-      </Card>
+      </div>
     </div>
   )
 }

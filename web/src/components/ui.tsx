@@ -1,25 +1,30 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
-import { useEffect } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import { useEffect, useRef } from 'react'
 
 import type { Action, Severity } from '@/lib/types'
+import { cx } from './cx'
 import s from './ui.module.scss'
 
-export function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(' ')
-}
+export { cx } from './cx'
+export { Input } from './Input'
+export type { InputProps } from './Input'
+export { InputNumber } from './InputNumber'
+export type { InputNumberProps } from './InputNumber'
+export { Select } from './Select'
+export type { SelectOption, SelectProps } from './Select'
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx(s.card, className)}>{children}</div>
+export function Card({ children, className, flush }: { children: ReactNode; className?: string; flush?: boolean }) {
+  return <div className={cx(s.card, flush && s.cardFlush, className)}>{children}</div>
 }
 
 export function CardHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
     <div className={s.cardHeader}>
-      <div>
+      <div className={s.cardHeaderText}>
         <div className={s.cardTitle}>{title}</div>
         {subtitle ? <div className={s.cardSubtitle}>{subtitle}</div> : null}
       </div>
-      {actions}
+      {actions ? <div className={s.cardActions}>{actions}</div> : null}
     </div>
   )
 }
@@ -27,18 +32,18 @@ export function CardHeader({ title, subtitle, actions }: { title: string; subtit
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
     <div className={s.pageHeader}>
-      <div>
+      <div className={s.pageHeaderText}>
         <h1 className={s.pageTitle}>{title}</h1>
         {description ? <p className={s.pageDescription}>{description}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className={s.pageActions}>{actions}</div> : null}
     </div>
   )
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'default' | 'primary' | 'danger' | 'ghost'
-  size?: 'md' | 'sm'
+  size?: 'md' | 'sm' | 'lg'
 }
 
 export function Button({ variant = 'default', size = 'md', className, children, ...rest }: ButtonProps) {
@@ -50,6 +55,7 @@ export function Button({ variant = 'default', size = 'md', className, children, 
         variant === 'danger' && s.danger,
         variant === 'ghost' && s.ghost,
         size === 'sm' && s.sm,
+        size === 'lg' && s.lg,
         className,
       )}
       {...rest}
@@ -59,9 +65,9 @@ export function Button({ variant = 'default', size = 'md', className, children, 
   )
 }
 
-export function IconButton({ className, children, ...rest }: ButtonProps) {
+export function IconButton({ size = 'md', className, children, ...rest }: ButtonProps) {
   return (
-    <button className={cx(s.btn, s.ghost, s.iconBtn, className)} {...rest}>
+    <button className={cx(s.btn, s.ghost, s.iconBtn, size === 'sm' && s.sm, className)} {...rest}>
       {children}
     </button>
   )
@@ -70,6 +76,7 @@ export function IconButton({ className, children, ...rest }: ButtonProps) {
 export function Badge({ children, tone }: { children: ReactNode; tone?: 'block' | 'allow' | 'log' | 'default' }) {
   return (
     <span className={cx(s.badge, tone === 'block' && s.block, tone === 'allow' && s.allow, tone === 'log' && s.log)}>
+      <span className={s.badgeDot} aria-hidden="true" />
       {children}
     </span>
   )
@@ -102,18 +109,6 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   )
 }
 
-export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(s.input, className)} {...rest} />
-}
-
-export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select className={cx(s.select, className)} {...rest}>
-      {children}
-    </select>
-  )
-}
-
 export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cx(s.textarea, className)} {...rest} />
 }
@@ -135,15 +130,39 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 
 export function Spinner({ label }: { label?: string }) {
   return (
-    <div className={s.loadingOverlay}>
+    <div className={s.loadingOverlay} role="status">
       <span className={s.spinner} />
       {label ? <span>{label}</span> : null}
     </div>
   )
 }
 
-export function EmptyState({ children }: { children: ReactNode }) {
-  return <div className={s.empty}>{children}</div>
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  children,
+}: {
+  icon?: string
+  title?: ReactNode
+  description?: ReactNode
+  action?: ReactNode
+  children?: ReactNode
+}) {
+  if (!title && children) {
+    return <div className={s.empty}>{children}</div>
+  }
+  return (
+    <div className={s.empty}>
+      {icon ? <div className={s.emptyIllustration}>{<span className={icon} aria-hidden="true" />}</div> : null}
+      <div className={s.emptyContent}>
+        {title ? <div className={s.emptyTitle}>{title}</div> : null}
+        {description ? <div className={s.emptyDescription}>{description}</div> : null}
+      </div>
+      {action ? <div className={s.emptyAction}>{action}</div> : null}
+    </div>
+  )
 }
 
 export function TableShell({ children }: { children: ReactNode }) {
@@ -155,39 +174,72 @@ export function TableShell({ children }: { children: ReactNode }) {
 }
 
 export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const frame = window.requestAnimationFrame(() => panelRef.current?.focus())
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previousOverflow
+      window.cancelAnimationFrame(frame)
+    }
   }, [open, onClose])
 
   if (!open) return null
   return (
-    <div className={s.modalBackdrop} onClick={onClose}>
-      <div className={s.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className={s.cardHeader}>
+    <div className={s.modalBackdrop} onMouseDown={onClose}>
+      <div
+        ref={panelRef}
+        className={s.modal}
+        tabIndex={-1}
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className={s.modalHeader}>
           <div className={s.cardTitle}>{title}</div>
           <IconButton onClick={onClose} aria-label="Close">
             <span className="i-lucide-x" />
           </IconButton>
         </div>
-        {children}
+        <div className={s.modalBody}>{children}</div>
       </div>
     </div>
   )
 }
 
-export function StatCard({ label, value, tone }: { label: string; value: ReactNode; tone?: 'danger' | 'success' | 'accent' }) {
-  const color = tone === 'danger' ? 'var(--danger)' : tone === 'success' ? 'var(--success)' : tone === 'accent' ? 'var(--accent)' : undefined
+export function StatCard({
+  label,
+  value,
+  tone,
+  icon,
+  hint,
+}: {
+  label: string
+  value: ReactNode
+  tone?: 'danger' | 'success' | 'accent'
+  icon?: string
+  hint?: string
+}) {
+  const valueTone = tone === 'danger' ? s.toneDanger : tone === 'success' ? s.toneSuccess : tone === 'accent' ? s.toneAccent : undefined
+  const iconTone =
+    tone === 'danger' ? s.toneDangerIcon : tone === 'success' ? s.toneSuccessIcon : tone === 'accent' ? s.toneAccentIcon : undefined
   return (
-    <Card>
-      <div className={s.statLabel}>{label}</div>
-      <div className={s.statValue} style={color ? { color } : undefined}>
-        {value}
+    <Card className={s.statCard}>
+      <div className={s.statHead}>
+        <span className={s.statLabel}>{label}</span>
+        {icon ? <span className={cx(s.statIcon, iconTone)}>{<span className={icon} aria-hidden="true" />}</span> : null}
       </div>
+      <div className={cx(s.statValue, valueTone)}>{value}</div>
+      {hint ? <div className={s.statHint}>{hint}</div> : null}
     </Card>
   )
 }
@@ -196,11 +248,50 @@ export function Chip({ children }: { children: ReactNode }) {
   return <span className={s.chip}>{children}</span>
 }
 
+export function Pagination({
+  offset,
+  pageSize,
+  total,
+  onChange,
+}: {
+  offset: number
+  pageSize: number
+  total: number
+  onChange: (next: number) => void
+}) {
+  const from = total === 0 ? 0 : offset + 1
+  const to = Math.min(offset + pageSize, total)
+  const hasPrev = offset > 0
+  const hasNext = offset + pageSize < total
+  return (
+    <div className={s.pagination}>
+      <span className={s.pageInfo}>
+        {from}–{to} of {total}
+      </span>
+      <div className={s.pageButtons}>
+        <Button size="sm" disabled={!hasPrev} onClick={() => onChange(Math.max(0, offset - pageSize))}>
+          <span className="i-lucide-chevron-left" /> Prev
+        </Button>
+        <Button size="sm" disabled={!hasNext} onClick={() => onChange(offset + pageSize)}>
+          Next <span className="i-lucide-chevron-right" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className={s.tabs}>
+    <div className={s.tabs} role="tablist">
       {tabs.map((t) => (
-        <button key={t.id} type="button" className={cx(s.tab, value === t.id && s.tabActive)} onClick={() => onChange(t.id)}>
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={value === t.id}
+          className={cx(s.tab, value === t.id && s.tabActive)}
+          onClick={() => onChange(t.id)}
+        >
           {t.label}
         </button>
       ))}
