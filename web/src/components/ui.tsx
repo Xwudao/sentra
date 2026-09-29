@@ -248,6 +248,15 @@ export function Chip({ children }: { children: ReactNode }) {
   return <span className={s.chip}>{children}</span>
 }
 
+export function Detail({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <div className={cx(s.label, s.mb2)}>{label}</div>
+      <div className={s.textSm}>{value}</div>
+    </div>
+  )
+}
+
 export function Pagination({
   offset,
   pageSize,

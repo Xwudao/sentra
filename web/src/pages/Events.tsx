@@ -4,6 +4,7 @@ import {
   ActionBadge,
   Button,
   Card,
+  Detail,
   EmptyState,
   Field,
   Input,
@@ -218,15 +219,6 @@ function EventDetail({ event }: { event: SecurityEvent }) {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className={cx(s.label, s.mb2)}>{label}</div>
-      <div className={s.textSm}>{value}</div>
     </div>
   )
 }

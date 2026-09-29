@@ -1,17 +1,21 @@
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import {
   ActionBadge,
   Button,
   Card,
   Chip,
+  Detail,
   EmptyState,
   IconButton,
+  Modal,
   PageHeader,
   SeverityBadge,
   Spinner,
   TableShell,
   Toggle,
+  cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
 import { api, useApiQuery } from '@/lib/api'
@@ -23,6 +27,7 @@ interface RulesResponse {
 
 export function RulesPage() {
   const { data, loading, error, reload } = useApiQuery<RulesResponse>('/api/rules')
+  const [selected, setSelected] = useState<Rule | null>(null)
   const rules = data?.rules ?? []
 
   async function toggle(rule: Rule, enabled: boolean) {
@@ -86,6 +91,7 @@ export function RulesPage() {
                 <th>Name</th>
                 <th>ID</th>
                 <th>Operator</th>
+                <th>Value</th>
                 <th>Targets</th>
                 <th>Severity</th>
                 <th>Score</th>
@@ -95,14 +101,12 @@ export function RulesPage() {
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id}>
-                  <td>
+                <tr key={rule.id} className={s.rowClickable} onClick={() => setSelected(rule)}>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <Toggle checked={rule.enabled} onChange={(v) => void toggle(rule, v)} label={`Enable ${rule.name}`} />
                   </td>
                   <td>
-                    <Link to="/security/rules/$ruleId" params={{ ruleId: rule.id }} className={s.link}>
-                      {rule.name}
-                    </Link>
+                    <span className={s.link}>{rule.name}</span>
                     {rule.tags?.length ? (
                       <div className={s.tagRow}>
                         {rule.tags.map((tag) => (
@@ -113,6 +117,11 @@ export function RulesPage() {
                   </td>
                   <td className={s.mono}>{rule.id}</td>
                   <td className={s.mono}>{rule.operator}</td>
+                  <td className={s.pathCell}>
+                    <span className={cx(s.mono, s.textMuted)} title={valueTitle(rule)}>
+                      {valuePreview(rule)}
+                    </span>
+                  </td>
                   <td className={s.targetCell}>
                     <div className={s.chipTight}>
                       {rule.targets.map((t) => (
@@ -127,8 +136,11 @@ export function RulesPage() {
                   <td>
                     <ActionBadge action={rule.action} />
                   </td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <div className={s.rowEndTight}>
+                      <IconButton aria-label="View details" title="View details" onClick={() => setSelected(rule)}>
+                        <span className="i-lucide-eye" />
+                      </IconButton>
                       <Link to="/security/rules/$ruleId" params={{ ruleId: rule.id }}>
                         <IconButton aria-label="Edit" title="Edit">
                           <span className="i-lucide-pencil" />
@@ -148,6 +160,110 @@ export function RulesPage() {
           </TableShell>
         )}
       </Card>
+
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? 'Rule detail'}>
+        {selected ? <RuleDetail rule={selected} /> : null}
+      </Modal>
     </>
+  )
+}
+
+function valuePreview(rule: Rule): string {
+  if (rule.operator === 'keyword_set') {
+    const count = rule.values?.length ?? 0
+    return count === 1 ? '1 keyword' : `${count} keywords`
+  }
+  return rule.value || '—'
+}
+
+function valueTitle(rule: Rule): string {
+  if (rule.operator === 'keyword_set') return (rule.values ?? []).join('\n')
+  return rule.value
+}
+
+function RuleDetail({ rule }: { rule: Rule }) {
+  const keywords = rule.values ?? []
+  return (
+    <div className={s.stack}>
+      <div className={s.gridAutoSm}>
+        <Detail
+          label="Status"
+          value={
+            <span className={rule.enabled ? s.successText : s.textMuted}>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+          }
+        />
+        <Detail label="Rule ID" value={<span className={s.mono}>{rule.id}</span>} />
+        <Detail label="Operator" value={rule.operator} />
+        <Detail label="Severity" value={<SeverityBadge severity={rule.severity} />} />
+        <Detail label="Action" value={<ActionBadge action={rule.action} />} />
+        <Detail label="Score" value={String(rule.score)} />
+        <Detail label="Priority" value={String(rule.priority)} />
+        <Detail label="Phase" value={rule.phase} />
+      </div>
+
+      <div>
+        <div className={cx(s.label, s.mb2)}>{rule.operator === 'keyword_set' ? 'Keywords' : 'Value'}</div>
+        {rule.operator === 'keyword_set' ? (
+          keywords.length ? (
+            <div className={s.chipTight}>
+              {keywords.map((keyword) => (
+                <Chip key={keyword}>{keyword}</Chip>
+              ))}
+            </div>
+          ) : (
+            <p className={cx(s.textSm, s.textMuted)}>No keywords defined.</p>
+          )
+        ) : (
+          <pre className={s.pre}>{rule.value || '—'}</pre>
+        )}
+      </div>
+
+      <div>
+        <div className={cx(s.label, s.mb2)}>Targets</div>
+        {rule.targets.length ? (
+          <div className={s.chipTight}>
+            {rule.targets.map((target) => (
+              <Chip key={target}>{target}</Chip>
+            ))}
+          </div>
+        ) : (
+          <p className={cx(s.textSm, s.textMuted)}>No targets defined.</p>
+        )}
+      </div>
+
+      <div>
+        <div className={cx(s.label, s.mb2)}>Transforms</div>
+        {rule.transforms.length ? (
+          <>
+            <div className={s.chipTight}>
+              {rule.transforms.map((transform) => (
+                <Chip key={transform}>{transform}</Chip>
+              ))}
+            </div>
+            <p className={cx(s.hint, s.mt2)}>Runs in order: {rule.transforms.join(' → ')}</p>
+          </>
+        ) : (
+          <p className={cx(s.textSm, s.textMuted)}>None</p>
+        )}
+      </div>
+
+      {rule.tags.length ? (
+        <div>
+          <div className={cx(s.label, s.mb2)}>Tags</div>
+          <div className={s.chipTight}>
+            {rule.tags.map((tag) => (
+              <Chip key={tag}>{tag}</Chip>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {rule.description ? (
+        <div>
+          <div className={cx(s.label, s.mb2)}>Description</div>
+          <div className={s.textSm}>{rule.description}</div>
+        </div>
+      ) : null}
+    </div>
   )
 }
