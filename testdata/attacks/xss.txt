@@ -1,0 +1,4 @@
+/p?x=<script>alert(1)</script>
+/p?x=%3Cscript%3Ealert(1)%3C/script%3E
+/p?x=<img src=x onerror=alert(1)>
+/comment?body=<svg/onload=alert(1)>

@@ -1,0 +1,11 @@
+/article/how-to-use-select-in-sql
+/products?id=42&sort=price
+/search?q=how+to+union+two+tables+in+sql
+/blog/2024/traversal-algorithms
+/api/users/123
+/images/logo.png
+/docs/getting-started
+/?name=John+Doe&city=New+York
+/files/report-2024.pdf
+/search?q=benign+select+query
+/articles/understanding-unions

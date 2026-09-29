@@ -1,0 +1,5 @@
+/search?q=1+UNION+SELECT+password+FROM+users
+/item?id=1+UNION+SELECT+1,2,3
+/item?id=1;SELECT+SLEEP(5)
+/item?id=1);SELECT+pg_sleep(5)--
+/api/items?filter=1 union/**/select 1

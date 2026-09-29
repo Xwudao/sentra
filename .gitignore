@@ -1,0 +1,51 @@
+# ---- Go ----
+# Compiled binaries
+/sentra
+/sentra.exe
+/cmd/sentra/sentra
+/cmd/sentra/sentra.exe
+# Turn a Caddy binary built via xcaddy (`make caddy`) into an ignore target
+/xcaddy-build/
+# Test / coverage output
+*.test
+*.out
+coverage.*
+# Vendored deps (not used; modules are fetched)
+/vendor/
+
+# ---- Frontend ----
+web/node_modules/
+web/dist/
+web/.vite/
+web/coverage/
+web/*.tsbuildinfo
+.pnpm-store/
+node_modules/
+
+# ---- Runtime data ----
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/tmp/
+*.log
+logs/
+
+# ---- Secrets / local config ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# ---- Editors / OS ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# NOTE: internal/webassets/dist is intentionally tracked — it is the copy of the
+# built SPA embedded into the Go binary via //go:embed (`make web`).

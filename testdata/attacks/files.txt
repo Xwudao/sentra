@@ -1,0 +1,4 @@
+/.git/config
+/.env
+/wp-config.php
+/.ssh/id_rsa
