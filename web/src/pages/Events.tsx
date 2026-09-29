@@ -51,7 +51,7 @@ export function EventsPage() {
     return `/api/events?${params.toString()}`
   }, [applied, offset])
 
-  const { data, loading } = useApiQuery<EventsResponse>(path)
+  const { data, loading, error, reload } = useApiQuery<EventsResponse>(path)
   const events = data?.events ?? []
   const total = data?.total ?? 0
 
@@ -64,7 +64,17 @@ export function EventsPage() {
 
   return (
     <>
-      <PageHeader title="Events" description="Blocked and logged requests with their rule matches." />
+      <PageHeader
+        title="Events"
+        description="Blocked and logged requests with their rule matches."
+        actions={
+          <Button type="button" onClick={reload} disabled={loading}>
+            <span className="i-lucide-refresh-cw" aria-hidden="true" /> {loading ? 'Refreshing…' : 'Refresh'}
+          </Button>
+        }
+      />
+
+      {error ? <Card className={s.mb4}>Failed to load events: {error.message}</Card> : null}
 
       <Card className={s.mb4}>
         <form
@@ -106,7 +116,7 @@ export function EventsPage() {
           <div className={s.cardSection}>
             <Spinner label="Loading events" />
           </div>
-        ) : events.length === 0 ? (
+        ) : error && events.length === 0 ? null : events.length === 0 ? (
           <div className={s.cardSection}>
             <EmptyState
               icon="i-lucide-search-x"
