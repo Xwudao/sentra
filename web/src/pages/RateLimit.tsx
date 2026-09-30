@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { Button, Card, CardHeader, EmptyState, Field, IconButton, Input, InputNumber, PageHeader, Spinner, cx } from '@/components/ui'
 import s from '@/components/ui.module.scss'
+import { Popconfirm } from '@/components/Popconfirm'
 import { api, useApiQuery } from '@/lib/api'
 import type { RateLimitRule, Settings } from '@/lib/types'
 
@@ -110,9 +111,11 @@ export function RateLimitPage() {
                 </Field>
                 <div className={s.rowEnd}>
                   <span className={s.mono}>id: {rule.id}</span>
-                  <IconButton aria-label="Delete policy" title="Delete" onClick={() => removeRule(index)}>
-                    <span className="i-lucide-trash-2" />
-                  </IconButton>
+                  <Popconfirm title={`Delete policy ${rule.id}?`} message="Save settings to apply this change." onConfirm={() => removeRule(index)}>
+                    <IconButton aria-label="Delete policy" title="Delete" type="button">
+                      <span className="i-lucide-trash-2" />
+                    </IconButton>
+                  </Popconfirm>
                 </div>
               </div>
             ))}

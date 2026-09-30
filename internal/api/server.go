@@ -62,6 +62,7 @@ func (s *Server) routes() {
 	api.HandleFunc("GET /api/events/{id}", s.handleGetEvent)
 	api.HandleFunc("GET /api/rules", s.handleListRules)
 	api.HandleFunc("POST /api/rules", s.handleCreateRule)
+	api.HandleFunc("POST /api/rules/restore", s.handleRestoreRules)
 	api.HandleFunc("GET /api/rules/{id}", s.handleGetRule)
 	api.HandleFunc("PUT /api/rules/{id}", s.handleUpdateRule)
 	api.HandleFunc("DELETE /api/rules/{id}", s.handleDeleteRule)

@@ -60,6 +60,23 @@ func TestRuleCRUD(t *testing.T) {
 	}
 }
 
+func TestReplaceRulesRollback(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	r := rule.Rule{ID: "original", Name: "Original", Enabled: true}
+	if err := s.UpsertRule(ctx, r, false); err != nil {
+		t.Fatal(err)
+	}
+	r.ID = "duplicate"
+	if err := s.ReplaceRules(ctx, []rule.Rule{r, r}); err == nil {
+		t.Fatal("expected duplicate ID failure")
+	}
+	stored, err := s.ListRules(ctx)
+	if err != nil || len(stored) != 1 || stored[0].ID != "original" {
+		t.Fatalf("replacement was not rolled back: %+v, %v", stored, err)
+	}
+}
+
 func TestIPRuleCRUD(t *testing.T) {
 	s := openTest(t)
 	ctx := context.Background()

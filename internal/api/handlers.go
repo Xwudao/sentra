@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Xwudao/sentra/internal/defaults"
 	"github.com/Xwudao/sentra/internal/engine"
 	"github.com/Xwudao/sentra/internal/event"
 	"github.com/Xwudao/sentra/internal/ipset"
@@ -119,6 +120,24 @@ func (s *Server) handleListRules(w http.ResponseWriter, r *http.Request) {
 		rules = []rule.Rule{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"rules": rules})
+}
+
+// handleRestoreRules replaces custom and modified rules with the built-in ruleset.
+func (s *Server) handleRestoreRules(w http.ResponseWriter, r *http.Request) {
+	rules := defaults.Rules()
+	if err := compileCheck(rules); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := s.store.ReplaceRules(r.Context(), rules); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := s.recompileRules(r); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"restored": len(rules)})
 }
 
 func (s *Server) handleGetRule(w http.ResponseWriter, r *http.Request) {

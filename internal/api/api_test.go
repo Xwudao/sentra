@@ -2,12 +2,14 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
+	"github.com/Xwudao/sentra/internal/defaults"
 	"github.com/Xwudao/sentra/internal/engine"
 	"github.com/Xwudao/sentra/internal/storage"
 )
@@ -123,6 +125,58 @@ func TestRuleCRUDAndPlayground(t *testing.T) {
 	}
 	if eng.Ruleset().RuleCount != 0 {
 		t.Fatalf("expected empty ruleset, got %d", eng.Ruleset().RuleCount)
+	}
+}
+
+func TestRestoreDefaultRules(t *testing.T) {
+	ts, eng, store := newTestServer(t, "secret")
+	ctx := context.Background()
+	builtins := defaults.Rules()
+	if err := store.ReplaceRules(ctx, builtins); err != nil {
+		t.Fatal(err)
+	}
+	modified := builtins[0]
+	modified.Name = "Modified"
+	modified.Enabled = false
+	if err := store.UpsertRule(ctx, modified, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteRule(ctx, builtins[1].ID); err != nil {
+		t.Fatal(err)
+	}
+	custom := builtins[0]
+	custom.ID = "custom"
+	if err := store.UpsertRule(ctx, custom, false); err != nil {
+		t.Fatal(err)
+	}
+	resp, _ := request(t, ts, "POST", "/api/rules/restore", "", nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthorized restore: %d", resp.StatusCode)
+	}
+	resp, body := request(t, ts, "POST", "/api/rules/restore", "secret", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("restore: %d %s", resp.StatusCode, body)
+	}
+	rules, err := store.ListRules(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != len(builtins) || eng.Ruleset().RuleCount != len(builtins) {
+		t.Fatalf("restored count: stored=%d live=%d want=%d", len(rules), eng.Ruleset().RuleCount, len(builtins))
+	}
+	if _, err := store.GetRule(ctx, custom.ID); err == nil {
+		t.Fatal("custom rule was not removed")
+	}
+	got, err := store.GetRule(ctx, modified.ID)
+	if err != nil || got.Name != builtins[0].Name || got.Enabled != builtins[0].Enabled {
+		t.Fatalf("modified rule not restored: %+v, %v", got, err)
+	}
+	if _, err := store.GetRule(ctx, builtins[1].ID); err != nil {
+		t.Fatalf("deleted builtin not restored: %v", err)
+	}
+	resp, body = request(t, ts, "POST", "/api/rules/restore", "secret", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("repeat restore: %d %s", resp.StatusCode, body)
 	}
 }
 

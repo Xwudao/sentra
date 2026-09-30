@@ -16,6 +16,7 @@ import {
   cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
+import { Popconfirm } from '@/components/Popconfirm'
 import { api, useApiQuery } from '@/lib/api'
 import type { IPRule } from '@/lib/types'
 
@@ -47,7 +48,6 @@ export function IPRulesPage() {
   }
 
   async function remove(rule: IPRule) {
-    if (!window.confirm(`Delete IP rule ${rule.cidr}?`)) return
     await api.del(`/api/ip-rules/${encodeURIComponent(rule.id)}`)
     reload()
   }
@@ -114,9 +114,11 @@ export function IPRulesPage() {
                   <td>{rule.note || '—'}</td>
                   <td className={cx(s.textXs, s.textMuted)}>{new Date(rule.created_at).toLocaleString()}</td>
                   <td className={s.textRight}>
-                    <IconButton aria-label="Delete" title="Delete" onClick={() => void remove(rule)}>
-                      <span className="i-lucide-trash-2" />
-                    </IconButton>
+                    <Popconfirm title={`Delete IP rule ${rule.cidr}?`} message="This action cannot be undone." onConfirm={() => void remove(rule)}>
+                      <IconButton aria-label="Delete" title="Delete" type="button">
+                        <span className="i-lucide-trash-2" />
+                      </IconButton>
+                    </Popconfirm>
                   </td>
                 </tr>
               ))}

@@ -141,8 +141,37 @@ func (s *SQLite) UpsertRule(ctx context.Context, r rule.Rule, builtin bool) erro
 	return err
 }
 
-// DeleteRule removes a rule. It refuses to delete built-in rules unless
-// allowBuiltin is set, protecting the default protectionset.
+// ReplaceRules atomically replaces all stored rules with the supplied built-in rules.
+func (s *SQLite) ReplaceRules(ctx context.Context, rules []rule.Rule) (err error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `DELETE FROM rules`); err != nil {
+		return err
+	}
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO rules (id, name, enabled, phase, targets, operator, value, match_values, transforms,
+			action, score, severity, priority, tags, description, builtin, created_at, updated_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	for _, r := range rules {
+		if _, err = stmt.ExecContext(ctx,
+			r.ID, r.Name, boolInt(r.Enabled), r.Phase, mustJSON(r.Targets), r.Operator, r.Value,
+			mustJSON(r.Values), mustJSON(r.Transforms), r.Action, r.Score, r.Severity, r.Priority,
+			mustJSON(r.Tags), r.Description, 1, now, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// DeleteRule removes a rule.
 func (s *SQLite) DeleteRule(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM rules WHERE id = ?`, id)
 	if err != nil {

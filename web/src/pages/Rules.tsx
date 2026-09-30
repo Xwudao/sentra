@@ -18,6 +18,7 @@ import {
   cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
+import { Popconfirm } from '@/components/Popconfirm'
 import { api, useApiQuery } from '@/lib/api'
 import type { Rule } from '@/lib/types'
 
@@ -28,7 +29,23 @@ interface RulesResponse {
 export function RulesPage() {
   const { data, loading, error, reload } = useApiQuery<RulesResponse>('/api/rules')
   const [selected, setSelected] = useState<Rule | null>(null)
+  const [restoring, setRestoring] = useState(false)
+  const [restoreError, setRestoreError] = useState('')
   const rules = data?.rules ?? []
+
+  async function restoreDefaults() {
+    setRestoring(true)
+    setRestoreError('')
+    try {
+      await api.post('/api/rules/restore')
+      setSelected(null)
+      reload()
+    } catch (e) {
+      setRestoreError((e as Error).message)
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   async function toggle(rule: Rule, enabled: boolean) {
     await api.put(`/api/rules/${encodeURIComponent(rule.id)}`, { ...rule, enabled })
@@ -42,7 +59,6 @@ export function RulesPage() {
   }
 
   async function remove(rule: Rule) {
-    if (!window.confirm(`Delete rule "${rule.name}"?`)) return
     await api.del(`/api/rules/${encodeURIComponent(rule.id)}`)
     reload()
   }
@@ -53,14 +69,27 @@ export function RulesPage() {
         title="Rules"
         description="Detection rules evaluated against every request. Changes apply immediately without a restart."
         actions={
-          <Link to="/security/rules/new">
-            <Button variant="primary">
-              <span className="i-lucide-plus" /> New rule
-            </Button>
-          </Link>
+          <>
+            <Popconfirm
+              title="Restore default rules?"
+              message="This will remove all custom rules and reset modified rules to their built-in defaults. This cannot be undone."
+              confirmText="Restore defaults"
+              onConfirm={() => void restoreDefaults()}
+            >
+              <Button type="button" disabled={restoring}>
+                <span className="i-lucide-rotate-ccw" /> {restoring ? 'Restoring…' : 'Restore defaults'}
+              </Button>
+            </Popconfirm>
+            <Link to="/security/rules/new">
+              <Button variant="primary">
+                <span className="i-lucide-plus" /> New rule
+              </Button>
+            </Link>
+          </>
         }
       />
 
+      {restoreError ? <Card className={cx(s.mb4, s.dangerText)}>Failed to restore default rules: {restoreError}</Card> : null}
       {error ? <Card className={s.mb4}>Failed to load rules: {error.message}</Card> : null}
 
       <Card flush>
@@ -149,9 +178,11 @@ export function RulesPage() {
                       <IconButton aria-label="Duplicate" title="Duplicate" onClick={() => void duplicate(rule)}>
                         <span className="i-lucide-copy" />
                       </IconButton>
-                      <IconButton aria-label="Delete" title="Delete" onClick={() => void remove(rule)}>
-                        <span className="i-lucide-trash-2" />
-                      </IconButton>
+                      <Popconfirm title={`Delete rule "${rule.name}"?`} message="This action cannot be undone." onConfirm={() => void remove(rule)}>
+                        <IconButton aria-label="Delete" title="Delete" type="button">
+                          <span className="i-lucide-trash-2" />
+                        </IconButton>
+                      </Popconfirm>
                     </div>
                   </td>
                 </tr>

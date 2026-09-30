@@ -58,6 +58,7 @@ type Store interface {
 	GetRule(ctx context.Context, id string) (rule.Rule, error)
 	UpsertRule(ctx context.Context, r rule.Rule, builtin bool) error
 	DeleteRule(ctx context.Context, id string) error
+	ReplaceRules(ctx context.Context, rules []rule.Rule) error
 
 	// IP rules
 	ListIPRules(ctx context.Context) ([]IPRule, error)
