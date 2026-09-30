@@ -2,12 +2,18 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
+	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/Xwudao/sentra/internal/webassets"
 
 	"github.com/Xwudao/sentra/internal/defaults"
 	"github.com/Xwudao/sentra/internal/engine"
@@ -226,5 +232,75 @@ func TestSPAFallback(t *testing.T) {
 	resp, _ := request(t, ts, "GET", "/some/spa/route", "", nil)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected SPA fallback 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestSPAPrecompressed(t *testing.T) {
+	ts, _, _ := newTestServer(t, "")
+	client := &http.Client{Transport: &http.Transport{DisableCompression: true}}
+	entries, err := fs.ReadDir(webassets.Dist(), "assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var js string
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".js.gz") {
+			js = "/assets/" + strings.TrimSuffix(entry.Name(), ".gz")
+			break
+		}
+	}
+	if js == "" {
+		t.Fatal("no embedded JS gzip sidecar; run make web")
+	}
+	for _, asset := range []string{js, "/some/spa/route"} {
+		get := func(encoding string) (*http.Response, []byte) {
+			t.Helper()
+			req, err := http.NewRequest(http.MethodGet, ts.URL+asset, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if encoding != "" {
+				req.Header.Set("Accept-Encoding", encoding)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return resp, body
+		}
+		plain, original := get("gzip;q=0")
+		if plain.StatusCode != http.StatusOK || plain.Header.Get("Content-Encoding") != "" {
+			t.Fatalf("%s: expected uncompressed 200, got %d %q", asset, plain.StatusCode, plain.Header.Get("Content-Encoding"))
+		}
+		compressed, body := get("br, gzip")
+		if compressed.StatusCode != http.StatusOK || compressed.Header.Get("Content-Encoding") != "gzip" || compressed.Header.Get("Vary") != "Accept-Encoding" {
+			t.Fatalf("%s: expected gzip 200 with Vary, got %d %q %q", asset, compressed.StatusCode, compressed.Header.Get("Content-Encoding"), compressed.Header.Get("Vary"))
+		}
+		if compressed.Header.Get("Content-Type") != plain.Header.Get("Content-Type") {
+			t.Fatalf("%s: content type differs: %q vs %q", asset, compressed.Header.Get("Content-Type"), plain.Header.Get("Content-Type"))
+		}
+		reader, err := gzip.NewReader(bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := io.ReadAll(reader)
+		reader.Close()
+		if err != nil || !bytes.Equal(decoded, original) {
+			t.Fatalf("%s: gzip body does not match original: %v", asset, err)
+		}
+	}
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+js+".gz", nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("direct .gz request: got %d, want 404", resp.StatusCode)
 	}
 }

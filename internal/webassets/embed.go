@@ -1,6 +1,6 @@
-// Package webassets embeds the built React admin SPA. The dist directory is
-// populated by the frontend build; a placeholder keeps `go build` working
-// before the SPA is built.
+// Package webassets embeds the built React admin SPA, including precompressed
+// gzip sidecars. The dist directory is populated by the frontend build; a
+// placeholder keeps `go build` working before the SPA is built.
 package webassets
 
 import (

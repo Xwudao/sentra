@@ -6,9 +6,14 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
+	"io"
+	"io/fs"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
+	"path"
+	"strconv"
 	"strings"
 
 	"github.com/Xwudao/sentra/internal/engine"
@@ -128,20 +133,85 @@ func (s *Server) spaHandler() http.Handler {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
-		path := strings.TrimPrefix(r.URL.Path, "/")
-		if path == "" {
-			path = "index.html"
-		}
-		if f, err := dist.Open(path); err == nil {
-			f.Close()
-			fileServer.ServeHTTP(w, r)
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		// Sidecars are an internal representation, never directly addressable.
+		if strings.HasSuffix(name, ".gz") {
+			http.NotFound(w, r)
 			return
 		}
-		// SPA fallback.
-		r2 := r.Clone(r.Context())
-		r2.URL.Path = "/"
-		fileServer.ServeHTTP(w, r2)
+		if name == "" {
+			name = "index.html"
+		}
+		if info, err := fs.Stat(dist, name); err != nil || info.IsDir() {
+			// SPA fallback for client-side routes.
+			name = "index.html"
+		}
+		if serveGzipAsset(w, r, dist, name) {
+			return
+		}
+		if name != strings.TrimPrefix(r.URL.Path, "/") {
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/"
+			fileServer.ServeHTTP(w, r2)
+			return
+		}
+		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// serveGzipAsset serves a precompressed sidecar when the client accepts gzip.
+// Keep the original file for clients that do not support it.
+func serveGzipAsset(w http.ResponseWriter, r *http.Request, dist fs.FS, name string) bool {
+	info, err := fs.Stat(dist, name+".gz")
+	if err != nil || info.IsDir() {
+		return false
+	}
+	w.Header().Add("Vary", "Accept-Encoding")
+	if !acceptsGzip(r.Header.Get("Accept-Encoding")) {
+		return false
+	}
+	f, err := dist.Open(name + ".gz")
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	seeker, ok := f.(io.ReadSeeker)
+	if !ok {
+		return false
+	}
+	if contentType := mime.TypeByExtension(path.Ext(name)); contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("Content-Encoding", "gzip")
+	http.ServeContent(w, r, path.Base(name), info.ModTime(), seeker)
+	return true
+}
+
+func acceptsGzip(header string) bool {
+	var wildcard float64
+	for _, part := range strings.Split(header, ",") {
+		fields := strings.Split(part, ";")
+		name := strings.TrimSpace(fields[0])
+		quality := 1.0
+		for _, param := range fields[1:] {
+			key, value, ok := strings.Cut(strings.TrimSpace(param), "=")
+			if ok && strings.EqualFold(strings.TrimSpace(key), "q") {
+				parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+				if err != nil || parsed < 0 || parsed > 1 {
+					quality = 0
+				} else {
+					quality = parsed
+				}
+			}
+		}
+		if strings.EqualFold(name, "gzip") {
+			return quality > 0
+		}
+		if name == "*" {
+			wildcard = quality
+		}
+	}
+	return wildcard > 0
 }
 
 func (s *Server) handlePrometheus(w http.ResponseWriter, r *http.Request) {

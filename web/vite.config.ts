@@ -4,6 +4,7 @@ import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import UnoCSS from 'unocss/vite'
 import { defineConfig } from 'vite'
+import { compression, defineAlgorithm } from 'vite-plugin-compression2'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -33,5 +34,9 @@ export default defineConfig({
   plugins: [
     react(),
     UnoCSS(),
+    compression({
+      include: /\.(html|css|js|json|svg)$/,
+      algorithms: [defineAlgorithm('gzip', { level: 9 })],
+    }),
   ],
 })
