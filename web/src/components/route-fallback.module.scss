@@ -1,0 +1,64 @@
+.wrapper {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: var(--canvas);
+}
+
+.card {
+  width: min(100%, 28rem);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.code {
+  display: block;
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.title {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 1.5rem;
+  color: var(--text-strong);
+}
+
+.message {
+  margin: 0 0 var(--space-5);
+  color: var(--text-muted);
+}
+
+.detail {
+  padding: var(--space-3);
+  margin: 0 0 var(--space-5);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.home {
+  color: var(--accent);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}

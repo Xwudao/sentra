@@ -61,12 +61,12 @@ func mustJSON(v any) string {
 }
 
 func unmarshalStrings(s string) []string {
-	if s == "" {
-		return nil
+	out := []string{}
+	if s != "" {
+		_ = json.Unmarshal([]byte(s), &out)
 	}
-	var out []string
-	if err := json.Unmarshal([]byte(s), &out); err != nil {
-		return nil
+	if out == nil {
+		return []string{}
 	}
 	return out
 }

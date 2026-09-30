@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -57,6 +58,31 @@ func TestRuleCRUD(t *testing.T) {
 	}
 	if _, err := s.GetRule(ctx, "sqli-basic"); err == nil {
 		t.Fatal("expected not found")
+	}
+}
+
+func TestEmptyRuleArraysMarshalAsArrays(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	if err := s.UpsertRule(ctx, rule.Rule{ID: "no-optional-arrays", Targets: []string{"path"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.GetRule(ctx, "no-optional-arrays")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"targets", "transforms", "tags"} {
+		if _, ok := payload[key].([]any); !ok {
+			t.Errorf("%s must be a JSON array, got %v", key, payload[key])
+		}
 	}
 }
 

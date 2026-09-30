@@ -76,7 +76,7 @@ export function RuleEditorPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (data) setRule(data)
+    if (data) setRule({ ...data, targets: data.targets ?? [], transforms: data.transforms ?? [], tags: data.tags ?? [], values: data.values ?? [] })
   }, [data])
 
   useEffect(() => {
@@ -248,7 +248,7 @@ export function RuleEditorPage() {
                 onClick={() => {
                   try {
                     const parsed = JSON.parse(json) as Rule
-                    setRule({ ...emptyRule(), ...parsed })
+                    setRule({ ...emptyRule(), ...parsed, targets: parsed.targets ?? [], transforms: parsed.transforms ?? [], tags: parsed.tags ?? [], values: parsed.values ?? [] })
                     setTab('form')
                     setError('')
                   } catch (e) {

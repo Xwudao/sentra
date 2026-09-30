@@ -153,7 +153,7 @@ export function RulesPage() {
                   </td>
                   <td className={s.targetCell}>
                     <div className={s.chipTight}>
-                      {rule.targets.map((t) => (
+                      {(rule.targets ?? []).map((t) => (
                         <Chip key={t}>{t}</Chip>
                       ))}
                     </div>
@@ -251,9 +251,9 @@ function RuleDetail({ rule }: { rule: Rule }) {
 
       <div>
         <div className={cx(s.label, s.mb2)}>Targets</div>
-        {rule.targets.length ? (
+        {rule.targets?.length ? (
           <div className={s.chipTight}>
-            {rule.targets.map((target) => (
+            {(rule.targets ?? []).map((target) => (
               <Chip key={target}>{target}</Chip>
             ))}
           </div>
@@ -264,25 +264,25 @@ function RuleDetail({ rule }: { rule: Rule }) {
 
       <div>
         <div className={cx(s.label, s.mb2)}>Transforms</div>
-        {rule.transforms.length ? (
+        {rule.transforms?.length ? (
           <>
             <div className={s.chipTight}>
-              {rule.transforms.map((transform) => (
+              {(rule.transforms ?? []).map((transform) => (
                 <Chip key={transform}>{transform}</Chip>
               ))}
             </div>
-            <p className={cx(s.hint, s.mt2)}>Runs in order: {rule.transforms.join(' → ')}</p>
+            <p className={cx(s.hint, s.mt2)}>Runs in order: {(rule.transforms ?? []).join(' → ')}</p>
           </>
         ) : (
           <p className={cx(s.textSm, s.textMuted)}>None</p>
         )}
       </div>
 
-      {rule.tags.length ? (
+      {rule.tags?.length ? (
         <div>
           <div className={cx(s.label, s.mb2)}>Tags</div>
           <div className={s.chipTight}>
-            {rule.tags.map((tag) => (
+            {(rule.tags ?? []).map((tag) => (
               <Chip key={tag}>{tag}</Chip>
             ))}
           </div>

@@ -2,6 +2,8 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 
 import { AppShell } from './components/AppShell'
 import { AuthGate } from './components/AuthGate'
+import { RouteError, RouteNotFound } from './components/RouteFallback'
+import { RoutePending } from './components/RoutePending'
 import { EventsPage } from './pages/Events'
 import { IPRulesPage } from './pages/IPRules'
 import { OverviewPage } from './pages/Overview'
@@ -12,6 +14,9 @@ import { RulesPage } from './pages/Rules'
 import { SettingsPage } from './pages/Settings'
 
 const rootRoute = createRootRoute({
+  errorComponent: RouteError,
+  notFoundComponent: RouteNotFound,
+  pendingComponent: RoutePending,
   component: () => (
     <AuthGate>
       <AppShell />
@@ -45,7 +50,14 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
 ])
 
-export const router = createRouter({ routeTree })
+export const router = createRouter({
+  routeTree,
+  defaultNotFoundComponent: RouteNotFound,
+  defaultErrorComponent: RouteError,
+  defaultPendingComponent: RoutePending,
+  defaultPendingMs: 120,
+  defaultPendingMinMs: 240,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {
