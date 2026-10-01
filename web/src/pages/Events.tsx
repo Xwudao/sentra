@@ -18,7 +18,8 @@ import {
   cx,
 } from '@/components/ui'
 import s from '@/components/ui.module.scss'
-import { useApiQuery } from '@/lib/api'
+import { Popconfirm } from '@/components/Popconfirm'
+import { api, useApiQuery } from '@/lib/api'
 import { formatRelative, formatTime } from '@/lib/format'
 import type { SecurityEvent } from '@/lib/types'
 
@@ -40,6 +41,8 @@ export function EventsPage() {
   const [applied, setApplied] = useState(filters)
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<SecurityEvent | null>(null)
+  const [clearing, setClearing] = useState(false)
+  const [clearError, setClearError] = useState('')
 
   const path = useMemo(() => {
     const params = new URLSearchParams()
@@ -56,6 +59,22 @@ export function EventsPage() {
   const events = data?.events ?? []
   const total = data?.total ?? 0
 
+  async function clearEvents() {
+    if (clearing) return
+    setClearing(true)
+    setClearError('')
+    try {
+      await api.del('/api/events')
+      setSelected(null)
+      setOffset(0)
+      reload()
+    } catch (e) {
+      setClearError((e as Error).message)
+    } finally {
+      setClearing(false)
+    }
+  }
+
   function resetFilters() {
     const cleared = { action: '', ip: '', rule: '', path: '' }
     setFilters(cleared)
@@ -69,13 +88,21 @@ export function EventsPage() {
         title="Events"
         description="Blocked and logged requests with their rule matches."
         actions={
-          <Button type="button" onClick={reload} disabled={loading}>
-            <span className="i-lucide-refresh-cw" aria-hidden="true" /> {loading ? 'Refreshing…' : 'Refresh'}
-          </Button>
+          <>
+            <Button type="button" onClick={reload} disabled={loading || clearing}>
+              <span className="i-lucide-refresh-cw" aria-hidden="true" /> {loading ? 'Refreshing…' : 'Refresh'}
+            </Button>
+            <Popconfirm title="Clear all event logs?" message="This permanently deletes all recorded events. Rules and settings will not be changed." confirmText="Clear logs" onConfirm={() => void clearEvents()}>
+              <Button type="button" variant="danger" disabled={clearing}>
+                <span className="i-lucide-trash-2" aria-hidden="true" /> {clearing ? 'Clearing…' : 'Clear logs'}
+              </Button>
+            </Popconfirm>
+          </>
         }
       />
 
       {error ? <Card className={s.mb4}>Failed to load events: {error.message}</Card> : null}
+      {clearError ? <Card className={s.mb4}><p role="alert">Failed to clear logs: {clearError}</p></Card> : null}
 
       <Card className={s.mb4}>
         <form

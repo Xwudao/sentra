@@ -12,11 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Xwudao/sentra/internal/webassets"
 
 	"github.com/Xwudao/sentra/internal/defaults"
 	"github.com/Xwudao/sentra/internal/engine"
+	"github.com/Xwudao/sentra/internal/event"
 	"github.com/Xwudao/sentra/internal/storage"
 )
 
@@ -198,6 +200,105 @@ func TestIPRuleAPI(t *testing.T) {
 	resp, _ = request(t, ts, "POST", "/api/ip-rules", "secret", map[string]any{"cidr": "not-a-cidr", "action": "block"})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid cidr, got %d", resp.StatusCode)
+	}
+}
+
+func TestBatchIPRuleAPI(t *testing.T) {
+	ts, eng, store := newTestServer(t, "secret")
+	path := "/api/ip-rules/batch"
+	resp, _ := request(t, ts, "POST", path, "", map[string]any{"cidrs": []string{"192.0.2.1"}, "action": "block"})
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected auth required, got %d", resp.StatusCode)
+	}
+	resp, body := request(t, ts, "POST", path, "secret", map[string]any{
+		"cidrs": []string{"192.0.2.1", "2001:db8::1", "192.0.2.1/32"}, "action": "allow", "note": "bulk",
+	})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("batch create: %d %s", resp.StatusCode, body)
+	}
+	var result struct {
+		Created int `json:"created"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil || result.Created != 2 {
+		t.Fatalf("expected 2 unique rules: %s (%v)", body, err)
+	}
+	rules, err := store.ListIPRules(context.Background())
+	if err != nil || len(rules) != 2 || eng.Metrics().IPRulesLoaded.Load() != 2 {
+		t.Fatalf("batch not persisted/reloaded: %+v (%v)", rules, err)
+	}
+	for _, rule := range rules {
+		if rule.Action != "allow" || rule.Note != "bulk" {
+			t.Fatalf("wrong rule: %+v", rule)
+		}
+	}
+	for _, input := range []map[string]any{
+		{"cidrs": []string{"198.51.100.1", "invalid"}, "action": "block"},
+		{"cidrs": []string{"198.51.100.1"}, "action": "invalid"},
+		{"cidrs": []string{}, "action": "block"},
+	} {
+		resp, _ = request(t, ts, "POST", path, "secret", input)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("expected 400 for %+v, got %d", input, resp.StatusCode)
+		}
+	}
+	rules, err = store.ListIPRules(context.Background())
+	if err != nil || len(rules) != 2 {
+		t.Fatalf("invalid batch inserted rules: %+v (%v)", rules, err)
+	}
+}
+
+func TestDashboardDoesNotWaitForDatabase(t *testing.T) {
+	ts, _, store := newTestServer(t, "secret")
+	conn, err := store.DB().Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	client := &http.Client{Timeout: time.Second}
+	req, _ := http.NewRequest("GET", ts.URL+"/api/dashboard", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("dashboard blocked on busy database: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("dashboard status: %d", resp.StatusCode)
+	}
+}
+
+func TestClearEventLogs(t *testing.T) {
+	ts, _, store := newTestServer(t, "secret")
+	ctx := context.Background()
+	if err := store.InsertEvents(ctx, []event.SecurityEvent{{ID: "event-1", Timestamp: time.Now(), Action: "block"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertIPRule(ctx, storage.IPRule{ID: "keep", CIDR: "192.0.2.1/32", Action: "allow"}); err != nil {
+		t.Fatal(err)
+	}
+	resp, body := request(t, ts, "GET", "/api/dashboard/events", "secret", nil)
+	if resp.StatusCode != http.StatusOK || !bytes.Contains(body, []byte("top_ips")) {
+		t.Fatalf("event summary: %d %s", resp.StatusCode, body)
+	}
+	resp, _ = request(t, ts, "DELETE", "/api/events", "", nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized, got %d", resp.StatusCode)
+	}
+	resp, body = request(t, ts, "DELETE", "/api/events", "secret", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("clear events: %d %s", resp.StatusCode, body)
+	}
+	n, err := store.CountEvents(ctx, storage.EventFilter{})
+	if err != nil || n != 0 {
+		t.Fatalf("expected no events, got %d (%v)", n, err)
+	}
+	rules, err := store.ListIPRules(ctx)
+	if err != nil || len(rules) != 1 || rules[0].ID != "keep" {
+		t.Fatalf("clearing logs affected IP rules: %+v (%v)", rules, err)
+	}
+	resp, _ = request(t, ts, "DELETE", "/api/events", "secret", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("repeated clear: %d", resp.StatusCode)
 	}
 }
 

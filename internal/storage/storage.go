@@ -63,6 +63,7 @@ type Store interface {
 	// IP rules
 	ListIPRules(ctx context.Context) ([]IPRule, error)
 	UpsertIPRule(ctx context.Context, r IPRule) error
+	InsertIPRules(ctx context.Context, rules []IPRule) error
 	DeleteIPRule(ctx context.Context, id string) error
 
 	// Settings
@@ -76,6 +77,7 @@ type Store interface {
 	GetEvent(ctx context.Context, id string) (event.SecurityEvent, error)
 	CountEvents(ctx context.Context, f EventFilter) (int64, error)
 	PruneEvents(ctx context.Context, before time.Time) (int64, error)
+	ClearEvents(ctx context.Context) error
 	AggregateEvents(ctx context.Context, since time.Time) (ips, paths, rules []StatCount, err error)
 
 	Close() error

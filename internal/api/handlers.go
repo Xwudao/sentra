@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -42,23 +43,26 @@ type dashboardResponse struct {
 	TopRules      []storage.StatCount `json:"top_rules"`
 }
 
+// The dashboard must not wait for potentially huge event-table scans.
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	since := time.Now().Add(-24 * time.Hour)
-	ips, paths, rules, err := s.store.AggregateEvents(ctx, since)
-	if err != nil {
-		s.logger.Error("dashboard aggregate failed", "error", err)
-	}
-	total, _ := s.store.CountEvents(ctx, storage.EventFilter{})
-	blocked, _ := s.store.CountEvents(ctx, storage.EventFilter{Action: "block"})
 	writeJSON(w, http.StatusOK, dashboardResponse{
-		Version:       s.cfg.Version,
-		Metrics:       s.engine.Metrics().Snapshot(),
-		EventsTotal:   total,
-		EventsBlocked: blocked,
-		TopIPs:        orEmpty(ips),
-		TopPaths:      orEmpty(paths),
-		TopRules:      orEmpty(rules),
+		Version: s.cfg.Version,
+		Metrics: s.engine.Metrics().Snapshot(),
+		TopIPs:  []storage.StatCount{}, TopPaths: []storage.StatCount{}, TopRules: []storage.StatCount{},
+	})
+}
+
+// Expensive event summaries load separately so a slow database cannot block the overview.
+func (s *Server) handleDashboardEvents(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	ips, paths, rules, err := s.store.AggregateEvents(ctx, time.Now().Add(-24*time.Hour))
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "event summary unavailable; try again later")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"top_ips": orEmpty(ips), "top_paths": orEmpty(paths), "top_rules": orEmpty(rules),
 	})
 }
 
@@ -97,6 +101,14 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		events = []event.SecurityEvent{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"events": events, "total": total})
+}
+
+func (s *Server) handleClearEvents(w http.ResponseWriter, r *http.Request) {
+	if err := s.store.ClearEvents(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"cleared": true})
 }
 
 func (s *Server) handleGetEvent(w http.ResponseWriter, r *http.Request) {
@@ -375,16 +387,12 @@ func (s *Server) handleCreateIPRule(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &in) {
 		return
 	}
-	p, err := netip.ParsePrefix(in.CIDR)
+	cidr, err := normalizeIPRuleCIDR(in.CIDR)
 	if err != nil {
-		if a, aerr := netip.ParseAddr(in.CIDR); aerr == nil {
-			p = netip.PrefixFrom(a, a.BitLen())
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid CIDR or IP")
-			return
-		}
+		writeError(w, http.StatusBadRequest, "invalid CIDR or IP")
+		return
 	}
-	in.CIDR = p.String()
+	in.CIDR = cidr
 	switch in.Action {
 	case "allow", "block":
 	default:
@@ -403,6 +411,61 @@ func (s *Server) handleCreateIPRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, in)
+}
+
+// normalizeIPRuleCIDR accepts both individual addresses and network prefixes.
+func normalizeIPRuleCIDR(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if p, err := netip.ParsePrefix(value); err == nil {
+		return p.Masked().String(), nil
+	}
+	a, err := netip.ParseAddr(value)
+	if err != nil {
+		return "", err
+	}
+	return netip.PrefixFrom(a, a.BitLen()).String(), nil
+}
+
+func (s *Server) handleCreateIPRulesBatch(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		CIDRs  []string `json:"cidrs"`
+		Action string   `json:"action"`
+		Note   string   `json:"note"`
+	}
+	if !decodeJSON(w, r, &in) {
+		return
+	}
+	if in.Action != "allow" && in.Action != "block" {
+		writeError(w, http.StatusBadRequest, "action must be allow or block")
+		return
+	}
+	if len(in.CIDRs) == 0 || len(in.CIDRs) > 1000 {
+		writeError(w, http.StatusBadRequest, "provide 1 to 1000 CIDRs or IPs")
+		return
+	}
+	rules := make([]storage.IPRule, 0, len(in.CIDRs))
+	seen := make(map[string]bool, len(in.CIDRs))
+	for i, value := range in.CIDRs {
+		cidr, err := normalizeIPRuleCIDR(value)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid CIDR or IP at entry %d: %s", i+1, value))
+			return
+		}
+		if seen[cidr] {
+			continue
+		}
+		seen[cidr] = true
+		rules = append(rules, storage.IPRule{ID: event.NewID(), CIDR: cidr, Action: in.Action, Note: in.Note})
+	}
+	if err := s.store.InsertIPRules(r.Context(), rules); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := s.reloadIPRules(r); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"created": len(rules)})
 }
 
 func (s *Server) handleDeleteIPRule(w http.ResponseWriter, r *http.Request) {

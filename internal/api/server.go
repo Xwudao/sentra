@@ -62,8 +62,10 @@ func (s *Server) Metrics() *metrics.Metrics { return s.engine.Metrics() }
 func (s *Server) routes() {
 	api := http.NewServeMux()
 	api.HandleFunc("GET /api/dashboard", s.handleDashboard)
+	api.HandleFunc("GET /api/dashboard/events", s.handleDashboardEvents)
 	api.HandleFunc("GET /api/metrics", s.handleMetrics)
 	api.HandleFunc("GET /api/events", s.handleListEvents)
+	api.HandleFunc("DELETE /api/events", s.handleClearEvents)
 	api.HandleFunc("GET /api/events/{id}", s.handleGetEvent)
 	api.HandleFunc("GET /api/rules", s.handleListRules)
 	api.HandleFunc("POST /api/rules", s.handleCreateRule)
@@ -74,6 +76,7 @@ func (s *Server) routes() {
 	api.HandleFunc("POST /api/rules/test", s.handleRuleTest)
 	api.HandleFunc("GET /api/ip-rules", s.handleListIPRules)
 	api.HandleFunc("POST /api/ip-rules", s.handleCreateIPRule)
+	api.HandleFunc("POST /api/ip-rules/batch", s.handleCreateIPRulesBatch)
 	api.HandleFunc("DELETE /api/ip-rules/{id}", s.handleDeleteIPRule)
 	api.HandleFunc("GET /api/settings", s.handleGetSettings)
 	api.HandleFunc("PUT /api/settings", s.handleUpdateSettings)

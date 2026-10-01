@@ -217,6 +217,29 @@ func (s *SQLite) UpsertIPRule(ctx context.Context, r IPRule) error {
 	return err
 }
 
+// InsertIPRules atomically inserts a batch of IP rules.
+func (s *SQLite) InsertIPRules(ctx context.Context, rules []IPRule) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO ip_rules (id, cidr, action, note, created_at) VALUES (?,?,?,?,?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, r := range rules {
+		if r.CreatedAt.IsZero() {
+			r.CreatedAt = time.Now().UTC()
+		}
+		if _, err := stmt.ExecContext(ctx, r.ID, r.CIDR, r.Action, r.Note, r.CreatedAt.Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // DeleteIPRule removes an IP rule.
 func (s *SQLite) DeleteIPRule(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM ip_rules WHERE id = ?`, id)
@@ -314,6 +337,13 @@ func (s *SQLite) PruneEvents(ctx context.Context, before time.Time) (int64, erro
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// ClearEvents removes only event logs; configuration and rules are preserved.
+// An unqualified DELETE enables SQLite's truncate optimization.
+func (s *SQLite) ClearEvents(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM security_events`)
+	return err
 }
 
 func eventWhere(f EventFilter) (string, []any) {
